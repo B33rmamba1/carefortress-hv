@@ -1,0 +1,12 @@
+# CareFortress — medical-vm AppArmor restrictions
+# Deny sound hardware — not needed for medical device simulation
+deny /dev/snd/** rw,
+deny /dev/shm/** rw,
+deny /run/shm/** rw,
+
+# Deny USB device access
+deny /dev/bus/usb/** rw,
+
+# Explicit disk access
+/var/lib/libvirt/images/medical-vm.qcow2 rwk,
+/var/lib/libvirt/images/alpine.iso r,

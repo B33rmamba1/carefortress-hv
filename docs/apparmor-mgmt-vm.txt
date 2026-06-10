@@ -1,0 +1,12 @@
+# CareFortress — mgmt-vm AppArmor restrictions
+# Deny sound hardware — not needed for management VM
+deny /dev/snd/** rw,
+deny /dev/shm/** rw,
+deny /run/shm/** rw,
+
+# Deny USB device access
+deny /dev/bus/usb/** rw,
+
+# Explicit disk access — mgmt-vm only
+/var/lib/libvirt/images/mgmt-vm.qcow2 rwk,
+/var/lib/libvirt/images/alpine.iso r,
