@@ -1,0 +1,15 @@
+Status: active
+Logging: on (medium)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere                  
+22/tcp (v6)                ALLOW IN    Anywhere (v6)             
+
+Anywhere on virbr2         DENY FWD    Anywhere on virbr1        
+Anywhere on virbr1         DENY FWD    Anywhere on virbr2        
+Anywhere (v6) on virbr2    DENY FWD    Anywhere (v6) on virbr1   
+Anywhere (v6) on virbr1    DENY FWD    Anywhere (v6) on virbr2   
+
