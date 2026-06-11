@@ -2,7 +2,7 @@
 # EdgeMed Secure — VM Snapshot Management Script
 # Usage: ./snapshot.sh [create|revert|list] [snapshot-name]
 
-DOMAINS=("medical-vm" "mgmt-vm")
+DOMAINS=("medical-vm" "mgmt-vm" "audit-vm")
 ACTION=${1:-list}
 SNAP_NAME=${2:-"manual-$(date +%Y%m%d-%H%M%S)"}
 
