@@ -1,0 +1,12 @@
+# CareFortress — audit-vm AppArmor restrictions
+# Created: 2026-06-11 — Ubuntu 24.04 / Q35
+# Deny sound hardware
+deny /dev/snd/** rw,
+deny /dev/shm/** rw,
+deny /run/shm/** rw,
+# Deny USB device access
+deny /dev/bus/usb/** rw,
+# Explicit disk access — audit-vm only
+/var/lib/libvirt/images/audit-vm.qcow2 rwk,
+/var/lib/libvirt/images/ubuntu-noble-base-new.img r,
+/var/lib/libvirt/images/audit-seed.iso r,
