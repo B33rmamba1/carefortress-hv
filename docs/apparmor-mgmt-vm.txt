@@ -1,12 +1,12 @@
 # CareFortress — mgmt-vm AppArmor restrictions
+# Updated: 2026-06-11 — rebuilt on Ubuntu 24.04 / Q35
 # Deny sound hardware — not needed for management VM
 deny /dev/snd/** rw,
 deny /dev/shm/** rw,
 deny /run/shm/** rw,
-
 # Deny USB device access
 deny /dev/bus/usb/** rw,
-
 # Explicit disk access — mgmt-vm only
 /var/lib/libvirt/images/mgmt-vm.qcow2 rwk,
-/var/lib/libvirt/images/alpine.iso r,
+/var/lib/libvirt/images/ubuntu-noble-base-new.img r,
+/var/lib/libvirt/images/mgmt-seed.iso r,
