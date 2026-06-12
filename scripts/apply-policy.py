@@ -128,13 +128,9 @@ def apply_rule(rule, policy):
     else:
         print(f"[policy]   WARNING: Could not add route on {src_vm_name}: {r.stderr.strip()}")
 
-    # dst VM needs route back to src subnet
-    r = ssh_run(dst_vm["ip"], dst_vm["ssh_user"],
-        f"sudo ip route replace {src_subnet} via {dst_gateway} && echo ok")
-    if "ok" in r.stdout:
-        print(f"[policy]   Route {src_subnet} via {dst_gateway} added on {dst_vm_name}")
-    else:
-        print(f"[policy]   WARNING: Could not add route on {dst_vm_name}: {r.stderr.strip()}")
+    # NOTE: Return route deliberately NOT added on dst VM.
+    # Host bridge handles return traffic at kernel level.
+    # Adding route on dst_vm increases attack surface — violates least privilege.
 
 
 def main():
