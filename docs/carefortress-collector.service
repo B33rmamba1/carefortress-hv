@@ -1,0 +1,16 @@
+[Unit]
+Description=CareFortress Host Log Collector
+After=libvirtd.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User=b33rmamba
+ExecStart=/usr/bin/python3 /home/b33rmamba/carefortress-hv/scripts/log-collector.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
