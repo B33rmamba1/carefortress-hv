@@ -1,0 +1,1 @@
+[176522.385421] audit: type=1400 audit(1781232038.830:599): apparmor="DENIED" operation="open" class="file" profile="libvirt-db798b81-d7e3-4eae-bd43-bb3b0a6f747a" name="/var/lib/libvirt/images/mgmt-vm.qcow2" pid=39737 comm="cat" requested_mask="r" denied_mask="r" fsuid=0 ouid=64055
