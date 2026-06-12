@@ -1,0 +1,61 @@
+{
+  "description": "CareFortress inter-VM network policy",
+  "version": "1.1",
+  "updated": "2026-06-12",
+  "default": "deny",
+  "networks": {
+    "mednet": {
+      "bridge": "virbr1",
+      "subnet": "10.10.1.0/24",
+      "gateway": "10.10.1.1"
+    },
+    "mgmtnet": {
+      "bridge": "virbr2",
+      "subnet": "10.10.2.0/24",
+      "gateway": "10.10.2.1"
+    },
+    "auditnet": {
+      "bridge": "virbr3",
+      "subnet": "10.10.3.0/24",
+      "gateway": "10.10.3.1"
+    }
+  },
+  "vms": {
+    "medical-vm": {
+      "network": "mednet",
+      "ip": "10.10.1.126",
+      "ssh_user": "ubuntu"
+    },
+    "mgmt-vm": {
+      "network": "mgmtnet",
+      "ip": "10.10.2.155",
+      "ssh_user": "ubuntu"
+    },
+    "audit-vm": {
+      "network": "auditnet",
+      "ip": "10.10.3.74",
+      "ssh_user": "ubuntu"
+    }
+  },
+  "rules": [
+    {
+      "id": "rule-001",
+      "description": "mgmt-vm may ping medical-vm for health check",
+      "enabled": true,
+      "src_vm": "mgmt-vm",
+      "dst_vm": "medical-vm",
+      "protocol": "icmp",
+      "comment": "Disabled by default \u2014 enable only for explicit health check use"
+    },
+    {
+      "id": "rule-002",
+      "description": "mgmt-vm may reach medical-vm policy API on port 9000",
+      "enabled": false,
+      "src_vm": "mgmt-vm",
+      "dst_vm": "medical-vm",
+      "protocol": "tcp",
+      "dst_port": 9000,
+      "comment": "Disabled \u2014 reserved for Phase 3 policy enforcement API"
+    }
+  ]
+}
