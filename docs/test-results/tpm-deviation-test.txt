@@ -1,0 +1,11 @@
+[attest] CareFortress PCR Attestation — 2026-06-15T21:09:59.327462+00:00
+[attest] Baseline: /home/b33rmamba/carefortress-hv/docs/tpm/pcr-baseline.txt
+[attest] Bank: sha256
+
+[attest] PCRs checked: 18  |  Matches: 17  |  Deviations: 1
+
+[attest] ❌ ATTESTATION FAILED — 1 PCR deviation(s) detected
+
+  PCR 10:
+    Baseline: 0XBE7417BF2B84BECCE6436FD2B8A32C16D145AD228518C83472B60A7223D01E94
+    Current:  0X8457EA3B75B42CCA719E0F366426FAF5391CDE46086796886BE660E4E3437443
