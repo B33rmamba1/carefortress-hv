@@ -1,0 +1,12 @@
+[Unit]
+Description=CareFortress Host Firewall Rules
+After=libvirtd.service network.target
+Wants=libvirtd.service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/carefortress-iptables.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
