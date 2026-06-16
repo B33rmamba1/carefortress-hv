@@ -76,24 +76,64 @@ def write_chained_entry(raw_line, source_vm):
 
         last_hash = entry["chain_hash"]
 
-def write_genesis():
-    global last_hash
+def validate_chain():
+    """Validate the chain. Returns (valid, last_hash, entry_count)."""
     prev_hash = "0" * 64
+    count = 0
+    try:
+        with open(CHAIN_LOG, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = json.loads(line)
+                stored_hash = entry.get("chain_hash", "")
+                entry_copy = {k: v for k, v in entry.items() if k != "chain_hash"}
+                entry_json = json.dumps(entry_copy, sort_keys=True)
+                expected = hashlib.sha256((prev_hash + entry_json).encode()).hexdigest()
+                if stored_hash != expected:
+                    return False, prev_hash, count
+                prev_hash = stored_hash
+                count += 1
+        return True, prev_hash, count
+    except FileNotFoundError:
+        return True, "0" * 64, 0
+    except Exception:
+        return False, prev_hash, count
+
+def isolate_broken_log():
+    """Move broken log to quarantine preserving evidence."""
+    import shutil
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    broken_path = os.path.join(LOG_DIR, f"audit-chain-BROKEN-{ts}.log")
+    os.system(f"sudo chattr -a {CHAIN_LOG} 2>/dev/null")
+    shutil.move(CHAIN_LOG, broken_path)
+    print(f"[collector] CHAIN BREAK -- broken log isolated to {broken_path}")
+    return broken_path
+
+def write_genesis(prev_hash=None, msg="CareFortress collector started", broken_ref=None):
+    global last_hash
+    if prev_hash is None:
+        prev_hash = "0" * 64
+    payload_msg = msg
+    if broken_ref:
+        payload_msg += f" -- previous chain broken, isolated to {os.path.basename(broken_ref)}"
     entry = {
         "collected_ts": datetime.now(timezone.utc).isoformat(),
         "source_vm": "collector",
-        "payload": {"type": "GENESIS", "msg": "CareFortress collector started"},
+        "payload": {"type": "GENESIS", "msg": payload_msg},
         "prev_hash": prev_hash,
     }
     entry_json = json.dumps(entry, sort_keys=True)
     entry["chain_hash"] = hashlib.sha256(
         (prev_hash + entry_json).encode()
     ).hexdigest()
-    with open(CHAIN_LOG, "w") as f:
+    with open(CHAIN_LOG, "a") as f:
         f.write(json.dumps(entry) + "\n")
         f.flush()
+    os.system(f"sudo chattr +a {CHAIN_LOG} 2>/dev/null")
     last_hash = entry["chain_hash"]
-    print(f"[collector] Genesis block written — hash: {last_hash[:16]}...")
+    print(f"[collector] Genesis block written -- hash: {last_hash[:16]}...")
 
 
 def read_socket(vm_name, socket_path, ready_event=None):
@@ -148,11 +188,46 @@ def scp_to_audit_vm():
 
 
 def main():
+    global last_hash
     os.makedirs(LOG_DIR, exist_ok=True)
     print(f"[collector] Starting — chain log: {CHAIN_LOG}")
 
-    # Write genesis block BEFORE any threads start
-    write_genesis()
+    # Validate existing chain before starting
+    if os.path.exists(CHAIN_LOG):
+        print("[collector] Validating existing chain...")
+        valid, last_valid_hash, count = validate_chain()
+        if valid:
+            print(f"[collector] Chain valid — {count} entries. Resuming.")
+            # Check for gap
+            import subprocess
+            result = subprocess.run(
+                ["tail", "-1", CHAIN_LOG],
+                capture_output=True, text=True
+            )
+            try:
+                last_entry = json.loads(result.stdout.strip())
+                last_ts = last_entry.get("collected_ts", "")
+                if last_ts:
+                    from datetime import timedelta
+                    last_dt = datetime.fromisoformat(last_ts)
+                    gap = datetime.now(timezone.utc) - last_dt
+                    if gap.total_seconds() > 300:
+                        print(f"[collector] GAP DETECTED — {gap} since last entry")
+                        write_genesis(
+                            prev_hash=last_valid_hash,
+                            msg=f"Collector restarted after gap of {gap}"
+                        )
+                    else:
+                        last_hash = last_valid_hash
+            except Exception:
+                last_hash = last_valid_hash
+        else:
+            print(f"[collector] CHAIN BREAK DETECTED after {count} entries — isolating broken log")
+            broken_ref = isolate_broken_log()
+            write_genesis(msg="New chain after break", broken_ref=broken_ref)
+    else:
+        # Fresh start
+        write_genesis()
 
     # Start reader threads sequentially, waiting for each to connect
     for vm_name, socket_path in SERIAL_SOCKETS.items():
