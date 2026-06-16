@@ -1,0 +1,3 @@
+# CareFortress additional NTS upstream sources
+server time.cloudflare.com iburst nts
+server time.google.com iburst nts
