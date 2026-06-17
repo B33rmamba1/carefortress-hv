@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CareFortress Deployment Manifest",
+  "description": "Defines the module configuration for a single device deployment",
+  "type": "object",
+  "required": ["device_id", "device_type", "os", "modules"],
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "description": "Unique identifier for this device deployment"
+    },
+    "device_type": {
+      "type": "string",
+      "enum": ["infusion_pump", "patient_monitor", "imaging_device", "diagnostic_device", "generic"],
+      "description": "Medical device classification"
+    },
+    "os": {
+      "type": "string",
+      "enum": ["linux", "windows_xp", "windows_xp_embedded", "windows_ce", "qnx", "vxworks", "other"],
+      "description": "Guest OS type -- determines which agent is deployed"
+    },
+    "modules": {
+      "type": "object",
+      "required": ["agent"],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "enum": ["linux", "windows", "qnx", "vxworks"],
+          "description": "Log agent implementation to deploy"
+        },
+        "protocol_proxy": {
+          "type": "string",
+          "enum": ["hl7", "dicom", "both", "none"],
+          "default": "none",
+          "description": "Protocol proxy module to activate"
+        },
+        "hl7_port": {
+          "type": "integer",
+          "default": 2575,
+          "description": "HL7 listening port on host mednet interface"
+        },
+        "hl7_version": {
+          "type": "string",
+          "enum": ["2.3", "2.4", "2.5", "2.6"],
+          "default": "2.4"
+        },
+        "dicom_port": {
+          "type": "integer",
+          "default": 104,
+          "description": "DICOM listening port on host mednet interface"
+        },
+        "epic_integration_engine": {
+          "type": "string",
+          "description": "IP:port of the EPIC integration engine -- required if protocol_proxy is hl7 or both"
+        },
+        "pacs_server": {
+          "type": "string",
+          "description": "IP:port of the PACS server -- required if protocol_proxy is dicom or both"
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "mednet_ip": {"type": "string"},
+        "gateway_ip": {"type": "string"},
+        "vm_name": {"type": "string"}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "manufacturer": {"type": "string"},
+        "model": {"type": "string"},
+        "serial_number": {"type": "string"},
+        "location": {"type": "string"},
+        "deployed_by": {"type": "string"},
+        "deployed_at": {"type": "string"}
+      }
+    }
+  }
+}

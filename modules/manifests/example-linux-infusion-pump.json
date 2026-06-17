@@ -1,0 +1,25 @@
+{
+  "device_id": "mercy-infusion-pump-001",
+  "device_type": "infusion_pump",
+  "os": "linux",
+  "modules": {
+    "agent": "linux",
+    "protocol_proxy": "hl7",
+    "hl7_port": 2575,
+    "hl7_version": "2.4",
+    "epic_integration_engine": "192.168.10.50:2575"
+  },
+  "network": {
+    "mednet_ip": "10.10.1.126",
+    "gateway_ip": "10.10.1.1",
+    "vm_name": "medical-vm"
+  },
+  "metadata": {
+    "manufacturer": "Acme Medical",
+    "model": "PumpPro 3000",
+    "serial_number": "PP3K-2019-00142",
+    "location": "ICU Bay 4",
+    "deployed_by": "james.smith",
+    "deployed_at": "2026-06-17T00:00:00Z"
+  }
+}

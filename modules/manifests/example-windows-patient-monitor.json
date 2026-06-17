@@ -1,0 +1,25 @@
+{
+  "device_id": "mercy-patient-monitor-007",
+  "device_type": "patient_monitor",
+  "os": "windows_xp_embedded",
+  "modules": {
+    "agent": "windows",
+    "protocol_proxy": "hl7",
+    "hl7_port": 2575,
+    "hl7_version": "2.3",
+    "epic_integration_engine": "192.168.10.50:2575"
+  },
+  "network": {
+    "mednet_ip": "10.10.1.130",
+    "gateway_ip": "10.10.1.1",
+    "vm_name": "monitor-vm-007"
+  },
+  "metadata": {
+    "manufacturer": "BioSign Systems",
+    "model": "VitalTrack XP",
+    "serial_number": "VTXP-2011-00007",
+    "location": "Ward 3 Room 12",
+    "deployed_by": "james.smith",
+    "deployed_at": "2026-06-17T00:00:00Z"
+  }
+}
