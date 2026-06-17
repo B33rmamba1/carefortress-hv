@@ -1,0 +1,19 @@
+#include <tunables/global>
+
+profile carefortress-validate-chain /usr/bin/python3 {
+    #include <abstractions/base>
+  capability dac_read_search,
+  capability dac_override,
+  #include <abstractions/python>
+
+  /home/b33rmamba/carefortress-hv/scripts/validate-chain.py r,
+  /home/b33rmamba/carefortress-hv/scripts/__pycache__/** rw,
+
+  # Read audit chain and archives
+  /home/b33rmamba/carefortress-hv/logs/ r,
+  /home/b33rmamba/carefortress-hv/logs/audit-chain.log r,
+  /home/b33rmamba/carefortress-hv/logs/archive/ r,
+  /home/b33rmamba/carefortress-hv/logs/archive/** r,
+
+  # Output only -- no network, no exec
+}

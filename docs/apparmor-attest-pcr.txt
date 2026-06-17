@@ -1,0 +1,27 @@
+#include <tunables/global>
+
+profile carefortress-attest-pcr /usr/bin/python3 {
+    #include <abstractions/base>
+  capability dac_read_search,
+  capability dac_override,
+  #include <abstractions/python>
+
+  /home/b33rmamba/carefortress-hv/scripts/attest-pcr.py r,
+  /home/b33rmamba/carefortress-hv/scripts/__pycache__/** rw,
+
+  # TPM device
+  /dev/tpmrm0 rw,
+  /dev/tpm0 rw,
+
+  # PCR baseline
+  /home/b33rmamba/carefortress-hv/docs/tpm/pcr-baseline.txt r,
+
+  # tpm2-tools
+  /usr/bin/tpm2 ix,
+  /usr/bin/tpm2_* ix,
+  /usr/bin/tpm2_* ix,
+  /usr/lib/x86_64-linux-gnu/** mr,
+  /etc/apt/apt.conf.d/ r,
+  /usr/lib/** r,
+  /usr/share/tpm2-tools/** r,
+}

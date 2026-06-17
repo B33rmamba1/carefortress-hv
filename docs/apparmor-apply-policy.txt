@@ -1,0 +1,30 @@
+#include <tunables/global>
+
+profile carefortress-apply-policy /usr/bin/python3 {
+    #include <abstractions/base>
+  capability dac_read_search,
+  capability dac_override,
+  #include <abstractions/python>
+
+  /home/b33rmamba/carefortress-hv/scripts/apply-policy.py r,
+  /home/b33rmamba/carefortress-hv/scripts/__pycache__/** rw,
+
+  # Policy file
+  /home/b33rmamba/carefortress-hv/policy/network-policy.json r,
+
+  # iptables for rule management
+  /usr/sbin/iptables ix,
+  /usr/sbin/iptables-legacy ix,
+
+  # SSH for route injection
+  /usr/bin/ssh ix,
+  /home/b33rmamba/.ssh/ r,
+  /home/b33rmamba/.ssh/id_ed25519 r,
+  /home/b33rmamba/.ssh/known_hosts rw,
+
+  network tcp,
+  network unix,
+
+  /etc/hosts r,
+  /etc/ssh/ssh_config r,
+}
