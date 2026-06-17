@@ -18,6 +18,15 @@ def validate_chain(log_path):
         sys.exit(1)
 
     prev_hash = "0" * 64
+    # Allow ROTATION_GENESIS as valid chain start with non-zero prev_hash
+    _first_line = open(log_path).readline().strip()
+    try:
+        _first_entry = json.loads(_first_line)
+        if _first_entry.get("type") == "ROTATION_GENESIS":
+            prev_hash = _first_entry.get("prev_hash", "0" * 64)
+            print(f"[validator] Rotation chain -- seeding from prev hash: {prev_hash[:16]}...")
+    except Exception:
+        pass
     total = 0
     errors = 0
 

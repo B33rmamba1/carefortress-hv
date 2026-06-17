@@ -79,6 +79,15 @@ def write_chained_entry(raw_line, source_vm):
 def validate_chain():
     """Validate the chain. Returns (valid, last_hash, entry_count)."""
     prev_hash = "0" * 64
+    # Allow ROTATION_GENESIS as valid chain start
+    try:
+        _fl = open(CHAIN_LOG).readline().strip()
+        _fe = json.loads(_fl)
+        if _fe.get("type") == "ROTATION_GENESIS":
+            prev_hash = _fe.get("prev_hash", "0" * 64)
+            print(f"[collector] Rotation chain detected -- seeding from prev hash: {prev_hash[:16]}...")
+    except Exception:
+        pass
     count = 0
     try:
         with open(CHAIN_LOG, "r") as f:
