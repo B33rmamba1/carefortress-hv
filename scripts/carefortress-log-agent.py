@@ -33,11 +33,26 @@ def write_entry(port, event_type, message, extra=None):
         sys.stderr.write(f"write_entry error: {e}\n")
 
 def get_logged_in_users():
+    """Read logged-in users directly from /var/run/utmp -- no subprocess, no AppArmor noise."""
     try:
-        result = subprocess.run(["who"], capture_output=True, text=True)
-        return result.stdout.strip() or "none"
+        import struct
+        UTMP_STRUCT = "hi32s4s32s256s4i20s"
+        UTMP_SIZE = struct.calcsize(UTMP_STRUCT)
+        USER_PROCESS = 7
+        users = []
+        with open("/var/run/utmp", "rb") as f:
+            while True:
+                data = f.read(UTMP_SIZE)
+                if len(data) < UTMP_SIZE:
+                    break
+                fields = struct.unpack(UTMP_STRUCT, data)
+                ut_type = fields[0]
+                ut_user = fields[4].decode("utf-8", errors="ignore").rstrip("\x00").strip()
+                if ut_type == USER_PROCESS and ut_user:
+                    users.append(ut_user)
+        return ", ".join(users) if users else "none"
     except Exception:
-        return "unknown"
+        return "none"
 
 def get_load():
     try:
