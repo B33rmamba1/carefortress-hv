@@ -310,12 +310,12 @@ All authentication events, connection events, and API calls are written to the a
 
 **Payload:**
 ```json
-{"rule_id": "http://192.168.1.182:9999/evil", "enabled": true}
+{"rule_id": "http://kali-testing-host:9999/evil", "enabled": true}
 ```
 
 **Result:**
 ```json
-{"detail": "Rule http://192.168.1.182:9999/evil not found"}  HTTP 404
+{"detail": "Rule http://kali-testing-host:9999/evil not found"}  HTTP 404
 ```
 
 The API performed a string lookup against the policy rules list -- no outbound HTTP request was made. No SSRF vector exists because the policy endpoint does not make any external requests. Confirmed by monitoring Kali listener -- no inbound connection received.
@@ -328,7 +328,7 @@ The API performed a string lookup against the policy rules list -- no outbound H
 
 Nikto v2.6.0
 
-Target: 192.168.1.92:8443
+Target: hypervisor-host:8443
 
 SSL: Subject: /C=US/O=CareFortress/CN=carefortress-hypervisor
 
@@ -358,7 +358,7 @@ Findings:
 ## Post-Remediation Verification
 
 All fixes verified from Kali VM after remediation:
-curl -sk https://192.168.1.92:8443/health -v
+curl -sk https://hypervisor-host:8443/health -v
 strict-transport-security: max-age=31536000; includeSubDomains  -- PRESENT
 
 x-content-type-options: nosniff                                  -- PRESENT
