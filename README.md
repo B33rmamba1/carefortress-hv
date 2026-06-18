@@ -227,7 +227,7 @@ apparmor-*.txt  AppArmor profiles for host scripts
 
 ## Author
 
-James Smith -- Security Engineer  
+James Smith -- Security Engineer | carefortress.dev  
 [linkedin.com/in/smithjamesd89](https://linkedin.com/in/smithjamesd89)  
 GPG: `0F882789E2917D31199070ED192C47200722413B`
 
