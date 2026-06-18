@@ -61,7 +61,7 @@ TOKEN_EXPIRE_MINUTES = 60
 USERS = {
     'admin': {
         'username': 'admin',
-        'hashed_password': '$2b$12$REPLACE_WITH_BCRYPT_HASH_OF_YOUR_PASSWORD',
+        'hashed_password': '$2b$12$UOqMpyyLPM.E3CkDJD73cu50NNb3nIWQNE827MStQ1ryVrwp2qMvK',
         'role': 'admin',
     }
 }
@@ -75,11 +75,24 @@ app = FastAPI(
     title='CareFortress Management API',
     description='Hypervisor security controls for legacy medical devices',
     version='0.1.0',
-    docs_url='/docs',
+    docs_url=None,  # Disabled -- enable locally for development only
     redoc_url=None,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── Security headers middleware ───────────────────────────────────────
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+    return response
+
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/token')
@@ -347,6 +360,7 @@ if __name__ == '__main__':
         port=8443,
         ssl_keyfile=KEY_FILE,
         ssl_certfile=CERT_FILE,
+        server_header=False,
         log_level='info',
         app_dir=os.path.dirname(os.path.abspath(__file__)),
     )

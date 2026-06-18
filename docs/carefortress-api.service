@@ -12,7 +12,8 @@ ExecStart=/home/b33rmamba/.local/bin/uvicorn api:app \
     --ssl-keyfile /home/b33rmamba/carefortress-hv/dashboard/certs/key.pem \
     --ssl-certfile /home/b33rmamba/carefortress-hv/dashboard/certs/cert.pem \
     --host 0.0.0.0 --port 8443 \
-    --app-dir /home/b33rmamba/carefortress-hv/dashboard
+    --app-dir /home/b33rmamba/carefortress-hv/dashboard \
+    --no-server-header
 Restart=on-failure
 RestartSec=5
 
