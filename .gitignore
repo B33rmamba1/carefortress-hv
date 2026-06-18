@@ -1,3 +1,6 @@
 certs/*.key
 certs/*.csr
 logs/
+__pycache__/
+*.pyc
+*.pyo

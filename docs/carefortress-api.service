@@ -1,0 +1,20 @@
+[Unit]
+Description=CareFortress Management API
+After=network.target libvirtd.service carefortress-collector.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User=b33rmamba
+WorkingDirectory=/home/b33rmamba/carefortress-hv/dashboard
+EnvironmentFile=/etc/carefortress-api.env
+ExecStart=/home/b33rmamba/.local/bin/uvicorn api:app \
+    --ssl-keyfile /home/b33rmamba/carefortress-hv/dashboard/certs/key.pem \
+    --ssl-certfile /home/b33rmamba/carefortress-hv/dashboard/certs/cert.pem \
+    --host 0.0.0.0 --port 8443 \
+    --app-dir /home/b33rmamba/carefortress-hv/dashboard
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
