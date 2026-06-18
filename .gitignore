@@ -4,3 +4,11 @@ logs/
 __pycache__/
 *.pyc
 *.pyo
+logs/
+certs/
+*.log
+*.docx
+*.pdf
+__pycache__/
+*.pyc
+*.pyo

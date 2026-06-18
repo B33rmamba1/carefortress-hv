@@ -1,5 +1,5 @@
 {
-  "device_id": "mercy-infusion-pump-001",
+  "device_id": "example-infusion-pump-001",
   "device_type": "infusion_pump",
   "os": "linux",
   "modules": {
@@ -15,7 +15,7 @@
     "vm_name": "medical-vm"
   },
   "metadata": {
-    "manufacturer": "Acme Medical",
+    "manufacturer": "Example Medical Systems",
     "model": "PumpPro 3000",
     "serial_number": "PP3K-2019-00142",
     "location": "ICU Bay 4",
