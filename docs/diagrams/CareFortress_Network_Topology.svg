@@ -1,0 +1,208 @@
+<svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="1000" height="760" fill="#F8FAFC"/>
+
+  <!-- Title -->
+  <text x="500" y="36" text-anchor="middle" font-size="18" font-weight="bold" fill="#0D1B2A">CareFortress — Network Topology</text>
+  <text x="500" y="56" text-anchor="middle" font-size="12" fill="#6B7280">Phase 2 In Progress  |  June 2026  |  3-Layer Nested Virtualization</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LAYER 1: PROXMOX HOST                                   -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="20" y="72" width="960" height="100" rx="8" fill="#E8F4F6" stroke="#1A7A8A" stroke-width="2"/>
+  <text x="36" y="93" font-size="11" font-weight="bold" fill="#1A7A8A">LAYER 1 — Proxmox Bare Metal Host</text>
+
+  <!-- Proxmox box -->
+  <rect x="36" y="100" width="220" height="58" rx="6" fill="#1A7A8A" stroke="#0D4F5C" stroke-width="1.5"/>
+  <text x="146" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Proxmox VE 9.2.0</text>
+  <text x="146" y="135" text-anchor="middle" font-size="10" fill="#B2E0E8">AMD Threadripper 2950X / 64GB</text>
+  <text x="146" y="149" text-anchor="middle" font-size="10" fill="#B2E0E8">PROXMOX-IP (vmbr0)</text>
+
+  <!-- vmbr0 label -->
+  <rect x="290" y="112" width="120" height="34" rx="4" fill="#DFF0F4" stroke="#1A7A8A" stroke-width="1"/>
+  <text x="350" y="126" text-anchor="middle" font-size="10" font-weight="bold" fill="#0D4F5C">vmbr0 Bridge</text>
+  <text x="350" y="139" text-anchor="middle" font-size="9" fill="#1A7A8A">HOME-NET/24</text>
+
+  <!-- Home network label -->
+  <rect x="440" y="112" width="520" height="34" rx="4" fill="white" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="700" y="126" text-anchor="middle" font-size="10" fill="#64748B">Management Host (HOME-NET-RANGE)</text>
+  <text x="700" y="139" text-anchor="middle" font-size="9" fill="#94A3B8">SSH access: user@hypervisor-host  |  GPG signed commits to GitHub</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LAYER 2: UBUNTU DEV VM (VM 102)                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="20" y="188" width="960" height="390" rx="8" fill="#F0FDF4" stroke="#16A34A" stroke-width="2"/>
+  <text x="36" y="209" font-size="11" font-weight="bold" fill="#16A34A">LAYER 2 — Dev VM 102 (Ubuntu 26.04 LTS / KVM Hypervisor Host)</text>
+  <text x="36" y="224" font-size="10" fill="#4ADE80">HV-HOST-IP  |  user: [configured]  |  SSH ed25519 key only  |  UFW: port 22/tcp  |  q35 / OVMF / TPM v2.0</text>
+
+  <!-- virtio-serial channels legend box -->
+  <rect x="700" y="232" width="268" height="80" rx="6" fill="#FEF9E7" stroke="#D97706" stroke-width="1.5"/>
+  <text x="834" y="249" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400E">virtio-serial Channels (Phase 2)</text>
+  <line x1="714" y1="255" x2="960" y2="255" stroke="#D97706" stroke-width="0.5"/>
+  <text x="714" y="268" font-size="9" fill="#78350F">medical-vm ──▶ /dev/virtio-ports/log.medical-vm</text>
+  <text x="714" y="281" font-size="9" fill="#78350F">mgmt-vm    ──▶ /dev/virtio-ports/log.mgmt-vm</text>
+  <text x="714" y="294" font-size="9" fill="#78350F">audit-vm   ──▶ /dev/virtio-ports/log.audit-vm</text>
+  <text x="714" y="307" font-size="9" fill="#92400E" font-weight="bold">Host collector → SHA-256 chained log</text>
+
+  <!-- mednet zone -->
+  <rect x="36" y="238" width="200" height="318" rx="6" fill="#FEF2F2" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="6,2"/>
+  <text x="136" y="256" text-anchor="middle" font-size="10" font-weight="bold" fill="#DC2626">mednet (virbr1)</text>
+  <text x="136" y="269" text-anchor="middle" font-size="9" fill="#EF4444">10.10.1.0/24  |  ISOLATED</text>
+
+  <!-- medical-vm -->
+  <rect x="50" y="278" width="172" height="100" rx="6" fill="#DC2626" stroke="#991B1B" stroke-width="1.5"/>
+  <text x="136" y="297" text-anchor="middle" font-size="11" font-weight="bold" fill="white">medical-vm</text>
+  <text x="136" y="311" text-anchor="middle" font-size="9" fill="#FCA5A5">Ubuntu 24.04 LTS / Q35</text>
+  <text x="136" y="324" text-anchor="middle" font-size="9" fill="#FCA5A5">10.10.1.126  |  user: ubuntu</text>
+  <text x="136" y="337" text-anchor="middle" font-size="9" fill="#FCA5A5">AppArmor: deny sound/USB/shm</text>
+  <text x="136" y="350" text-anchor="middle" font-size="9" fill="#FCA5A5">QEMU seccomp: active</text>
+  <text x="136" y="363" text-anchor="middle" font-size="9" fill="#FEF2F2">Simulates certified legacy medical OS</text>
+
+  <!-- virtio-serial arrow medical-vm -->
+  <line x1="222" y1="328" x2="260" y2="328" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <polygon points="258,324 266,328 258,332" fill="#D97706"/>
+
+  <!-- mednet deny arrow up -->
+  <rect x="50" y="400" width="172" height="50" rx="4" fill="#FEE2E2" stroke="#EF4444" stroke-width="1"/>
+  <text x="136" y="420" text-anchor="middle" font-size="9" fill="#DC2626" font-weight="bold">⛔ DENY ALL</text>
+  <text x="136" y="434" text-anchor="middle" font-size="9" fill="#DC2626">No route to mgmtnet</text>
+  <text x="136" y="446" text-anchor="middle" font-size="9" fill="#DC2626">No route to auditnet</text>
+
+  <!-- mgmtnet zone -->
+  <rect x="264" y="238" width="200" height="318" rx="6" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="6,2"/>
+  <text x="364" y="256" text-anchor="middle" font-size="10" font-weight="bold" fill="#2563EB">mgmtnet (virbr2)</text>
+  <text x="364" y="269" text-anchor="middle" font-size="9" fill="#3B82F6">10.10.2.0/24  |  ISOLATED</text>
+
+  <!-- mgmt-vm -->
+  <rect x="278" y="278" width="172" height="100" rx="6" fill="#2563EB" stroke="#1D4ED8" stroke-width="1.5"/>
+  <text x="364" y="297" text-anchor="middle" font-size="11" font-weight="bold" fill="white">mgmt-vm</text>
+  <text x="364" y="311" text-anchor="middle" font-size="9" fill="#BFDBFE">Ubuntu 24.04 LTS / Q35</text>
+  <text x="364" y="324" text-anchor="middle" font-size="9" fill="#BFDBFE">10.10.2.155  |  user: ubuntu</text>
+  <text x="364" y="337" text-anchor="middle" font-size="9" fill="#BFDBFE">AppArmor: deny sound/USB/shm</text>
+  <text x="364" y="350" text-anchor="middle" font-size="9" fill="#BFDBFE">QEMU seccomp: active</text>
+  <text x="364" y="363" text-anchor="middle" font-size="9" fill="#EFF6FF">Simulates management security layer</text>
+
+  <!-- virtio-serial arrow mgmt-vm -->
+  <line x1="450" y1="328" x2="488" y2="328" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <polygon points="486,324 494,328 486,332" fill="#D97706"/>
+
+  <!-- mgmtnet deny -->
+  <rect x="278" y="400" width="172" height="50" rx="4" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1"/>
+  <text x="364" y="420" text-anchor="middle" font-size="9" fill="#2563EB" font-weight="bold">⛔ DENY ALL</text>
+  <text x="364" y="434" text-anchor="middle" font-size="9" fill="#2563EB">No route to mednet</text>
+  <text x="364" y="446" text-anchor="middle" font-size="9" fill="#2563EB">No route to auditnet</text>
+
+  <!-- auditnet zone -->
+  <rect x="492" y="238" width="200" height="318" rx="6" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="6,2"/>
+  <text x="592" y="256" text-anchor="middle" font-size="10" font-weight="bold" fill="#7C3AED">auditnet (virbr3)</text>
+  <text x="592" y="269" text-anchor="middle" font-size="9" fill="#8B5CF6">10.10.3.0/24  |  ISOLATED</text>
+
+  <!-- audit-vm -->
+  <rect x="506" y="278" width="172" height="100" rx="6" fill="#7C3AED" stroke="#6D28D9" stroke-width="1.5"/>
+  <text x="592" y="297" text-anchor="middle" font-size="11" font-weight="bold" fill="white">audit-vm</text>
+  <text x="592" y="311" text-anchor="middle" font-size="9" fill="#DDD6FE">Ubuntu 24.04 LTS / Q35</text>
+  <text x="592" y="324" text-anchor="middle" font-size="9" fill="#DDD6FE">10.10.3.74  |  user: ubuntu</text>
+  <text x="592" y="337" text-anchor="middle" font-size="9" fill="#DDD6FE">AppArmor: deny sound/USB/shm</text>
+  <text x="592" y="350" text-anchor="middle" font-size="9" fill="#DDD6FE">QEMU seccomp: active</text>
+  <text x="592" y="363" text-anchor="middle" font-size="9" fill="#F5F3FF">Receives log copies via host SCP</text>
+
+  <!-- virtio-serial arrow audit-vm -->
+  <line x1="678" y1="328" x2="716" y2="328" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <polygon points="714,324 722,328 714,332" fill="#D97706"/>
+
+  <!-- auditnet deny -->
+  <rect x="506" y="400" width="172" height="50" rx="4" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="1"/>
+  <text x="592" y="420" text-anchor="middle" font-size="9" fill="#7C3AED" font-weight="bold">⛔ DENY ALL</text>
+  <text x="592" y="434" text-anchor="middle" font-size="9" fill="#7C3AED">No route to mednet</text>
+  <text x="592" y="446" text-anchor="middle" font-size="9" fill="#7C3AED">No route to mgmtnet</text>
+
+  <!-- Host collector box -->
+  <rect x="36" y="472" width="656" height="60" rx="6" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+  <text x="364" y="492" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Host Log Collector (VM 102)</text>
+  <text x="364" y="507" text-anchor="middle" font-size="9" fill="#94A3B8">Reads all three virtio-serial channels  |  Writes SHA-256 chained append-only log  |  SCP copies to audit-vm (host-initiated)</text>
+  <text x="364" y="521" text-anchor="middle" font-size="9" fill="#64748B">~/carefortress-hv/  |  AppArmor profiles at /etc/apparmor.d/libvirt/</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- ISOLATION FIREWALL LABELS                               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Cross-network block arrows -->
+  <!-- mednet ↔ mgmtnet -->
+  <line x1="236" y1="380" x2="264" y2="380" stroke="#DC2626" stroke-width="2"/>
+  <line x1="250" y1="370" x2="250" y2="390" stroke="#DC2626" stroke-width="2"/>
+  <text x="250" y="367" text-anchor="middle" font-size="9" fill="#DC2626" font-weight="bold">⛔</text>
+
+  <!-- mgmtnet ↔ auditnet -->
+  <line x1="464" y1="380" x2="492" y2="380" stroke="#DC2626" stroke-width="2"/>
+  <line x1="478" y1="370" x2="478" y2="390" stroke="#DC2626" stroke-width="2"/>
+  <text x="478" y="367" text-anchor="middle" font-size="9" fill="#DC2626" font-weight="bold">⛔</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- UFW / LIBVIRT FIREWALL LABEL                           -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="36" y="548" width="656" height="24" rx="4" fill="#FEF3C7" stroke="#D97706" stroke-width="1"/>
+  <text x="364" y="564" text-anchor="middle" font-size="9" fill="#92400E" font-weight="bold">UFW deny-forward policy + libvirt LIBVIRT_FWI/FWO chains block ALL cross-bridge traffic between mednet ↔ mgmtnet ↔ auditnet</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LAYER 3 LABEL                                           -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="700" y="472" width="268" height="100" rx="6" fill="#F1F5F9" stroke="#64748B" stroke-width="1.5"/>
+  <text x="834" y="492" text-anchor="middle" font-size="10" font-weight="bold" fill="#334155">Layer 3 — Nested KVM Confirmed</text>
+  <line x1="714" y1="498" x2="960" y2="498" stroke="#CBD5E1" stroke-width="0.5"/>
+  <text x="714" y="512" font-size="9" fill="#475569">Proxmox (bare metal)</text>
+  <text x="900" y="512" text-anchor="end" font-size="9" fill="#1A7A8A">Layer 1</text>
+  <text x="714" y="526" font-size="9" fill="#475569">  └─ Ubuntu VM 102 (KVM host)</text>
+  <text x="900" y="526" text-anchor="end" font-size="9" fill="#16A34A">Layer 2</text>
+  <text x="714" y="540" font-size="9" fill="#475569">      └─ Guest VMs (KVM guests)</text>
+  <text x="900" y="540" text-anchor="end" font-size="9" fill="#DC2626">Layer 3</text>
+  <text x="714" y="554" font-size="9" fill="#64748B">Nested KVM: ping 8.8.8.8 from Alpine</text>
+  <text x="900" y="554" text-anchor="end" font-size="9" fill="#64748B">0% loss ✅</text>
+  <text x="714" y="565" font-size="9" fill="#64748B">Confirmed June 8, 2026</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LEGEND                                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="20" y="590" width="960" height="160" rx="6" fill="white" stroke="#E2E8F0" stroke-width="1.5"/>
+  <text x="36" y="610" font-size="10" font-weight="bold" fill="#334155">Legend</text>
+
+  <!-- Network isolation legend -->
+  <rect x="36" y="620" width="14" height="14" rx="2" fill="#DC2626"/>
+  <text x="56" y="632" font-size="9" fill="#1F2937">mednet — isolated medical VM network</text>
+  <rect x="36" y="640" width="14" height="14" rx="2" fill="#2563EB"/>
+  <text x="56" y="652" font-size="9" fill="#1F2937">mgmtnet — isolated management VM network</text>
+  <rect x="36" y="660" width="14" height="14" rx="2" fill="#7C3AED"/>
+  <text x="56" y="672" font-size="9" fill="#1F2937">auditnet — isolated audit log VM network</text>
+  <rect x="36" y="680" width="14" height="14" rx="2" fill="#1A7A8A"/>
+  <text x="56" y="692" font-size="9" fill="#1F2937">vmbr0 — Proxmox bridge (home network access)</text>
+  <rect x="36" y="700" width="14" height="14" rx="2" fill="#1E293B"/>
+  <text x="56" y="712" font-size="9" fill="#1F2937">Host collector — reads virtio-serial, writes SHA-256 chained log</text>
+  <rect x="36" y="720" width="14" height="14" rx="2" fill="#F59E0B"/>
+  <text x="56" y="732" font-size="9" fill="#1F2937">virtio-serial channel — hypervisor-level, bypasses VM networking</text>
+
+  <!-- Right column legend -->
+  <line x1="340" y1="625" x2="380" y2="625" stroke="#D97706" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <polygon points="378,621 386,625 378,629" fill="#D97706"/>
+  <text x="392" y="629" font-size="9" fill="#1F2937">virtio-serial data path (no network required)</text>
+
+  <line x1="340" y1="645" x2="380" y2="645" stroke="#DC2626" stroke-width="2"/>
+  <line x1="360" y1="638" x2="360" y2="652" stroke="#DC2626" stroke-width="2"/>
+  <text x="392" y="649" font-size="9" fill="#1F2937">blocked / no route between networks</text>
+
+  <rect x="340" y="658" width="40" height="16" rx="3" fill="#FEF3C7" stroke="#D97706" stroke-width="1"/>
+  <text x="360" y="670" text-anchor="middle" font-size="8" fill="#92400E">UFW</text>
+  <text x="392" y="669" font-size="9" fill="#1F2937">UFW deny-forward + libvirt chain enforcement</text>
+
+  <!-- AppArmor note -->
+  <rect x="340" y="682" width="40" height="16" rx="3" fill="#ECFDF5" stroke="#16A34A" stroke-width="1"/>
+  <text x="360" y="694" text-anchor="middle" font-size="8" fill="#15803D">AA</text>
+  <text x="392" y="694" font-size="9" fill="#1F2937">AppArmor QEMU profiles active on all 3 guest VMs</text>
+
+  <rect x="340" y="706" width="40" height="16" rx="3" fill="#F0FDF4" stroke="#16A34A" stroke-width="1"/>
+  <text x="360" y="718" text-anchor="middle" font-size="8" fill="#15803D">sec</text>
+  <text x="392" y="718" font-size="9" fill="#1F2937">QEMU seccomp sandbox active (Ubuntu 26.04 default)</text>
+
+  <!-- Phase label -->
+  <text x="980" y="740" text-anchor="end" font-size="9" fill="#94A3B8">CareFortress Phase 2  |  June 2026  |  B33rmamba1/carefortress-hv</text>
+
+</svg>
