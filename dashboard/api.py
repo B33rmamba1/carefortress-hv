@@ -81,6 +81,20 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# ── Request body size limit ───────────────────────────────────────────
+@app.middleware("http")
+async def limit_body_size(request, call_next):
+    max_body = 64 * 1024  # 64KB
+    if request.headers.get("content-length"):
+        if int(request.headers["content-length"]) > max_body:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large"}
+            )
+    return await call_next(request)
+
+
 # ── Security headers middleware ───────────────────────────────────────
 @app.middleware("http")
 async def add_security_headers(request, call_next):
@@ -347,6 +361,20 @@ async def update_policy(
             break
     if not found:
         raise HTTPException(status_code=404, detail=f'Rule {update.rule_id} not found')
+
+    # Safeguard -- prevent disabling all rules simultaneously
+    if update.enabled is False:
+        enabled_count = sum(1 for r in rules if r.get('enabled', False))
+        if enabled_count == 0:
+            # Revert the change
+            for rule in rules:
+                if rule.get('id') == update.rule_id:
+                    rule['enabled'] = True
+                    break
+            raise HTTPException(
+                status_code=409,
+                detail='Cannot disable all policy rules simultaneously -- at least one rule must remain enabled'
+            )
     save_policy(policy)
     logging.info(f'Policy rule {update.rule_id} set enabled={update.enabled} by {current_user["username"]}')
     return {'status': 'ok', 'rule_id': update.rule_id, 'enabled': update.enabled}
