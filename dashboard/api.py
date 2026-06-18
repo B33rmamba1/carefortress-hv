@@ -61,7 +61,7 @@ TOKEN_EXPIRE_MINUTES = 60
 USERS = {
     'admin': {
         'username': 'admin',
-        'hashed_password': '$2b$12$eFOleOz5dmXI2.P6TYq6KeRcUh0K91iJYMvMSFZRBT7KydVaEPWQq',
+        'hashed_password': '$2b$12$REPLACE_WITH_BCRYPT_HASH_OF_YOUR_PASSWORD',
         'role': 'admin',
     }
 }
