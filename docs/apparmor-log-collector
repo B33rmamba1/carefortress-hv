@@ -1,0 +1,57 @@
+#include <tunables/global>
+
+profile carefortress-log-collector {
+    #include <abstractions/base>
+  capability dac_read_search,
+  capability dac_override,
+  #include <abstractions/python>
+
+  # Read the script itself
+  /home/b33rmamba/carefortress-hv/scripts/log-collector.py r,
+  /home/b33rmamba/carefortress-hv/scripts/__pycache__/** rw,
+
+  # virtio-serial sockets
+  /run/libvirt/qemu/channel/** rw,
+
+  # Audit chain log -- append only
+  /home/b33rmamba/carefortress-hv/logs/ r,
+  /home/b33rmamba/carefortress-hv/logs/audit-chain.log rw,
+  /home/b33rmamba/carefortress-hv/logs/archive/ r,
+  /home/b33rmamba/carefortress-hv/logs/archive/** a,
+  /home/b33rmamba/carefortress-hv/logs/audit-chain-BROKEN-*.log rw,
+  /home/b33rmamba/carefortress-hv/logs/archive/audit-chain-broken-*.log rw,
+
+  # SCP to audit-vm
+  /usr/bin/scp ix,
+  /usr/bin/ssh ix,
+  /home/b33rmamba/.ssh/ r,
+  /home/b33rmamba/.ssh/id_ed25519 r,
+  /home/b33rmamba/.ssh/known_hosts rw,
+
+  # chattr for append-only enforcement
+  /usr/bin/chattr ix,
+  # System tools used by collector
+  # Ubuntu 26.04 ships uutils-coreutils (Rust) via cargo at higher priority
+  # than GNU coreutils -- both paths needed for cross-distro compatibility
+  /usr/bin/tail ix,
+  /usr/bin/wc ix,
+  /bin/tail ix,
+  /usr/lib/cargo/bin/coreutils/tail ix,
+  /usr/lib/cargo/bin/coreutils/wc ix,
+
+  # Python needs these
+  /home/b33rmamba/carefortress-hv/scripts/ r,
+  /etc/default/apport r,
+  /etc/apt/apt.conf.d/ r,
+  /usr/share/dpkg/cputable r,
+  /usr/share/dpkg/tupletable r,
+
+
+  # Network for SCP and virtio
+  network tcp,
+  network unix,
+
+  # System info
+  /proc/loadavg r,
+  /etc/hosts r,
+}

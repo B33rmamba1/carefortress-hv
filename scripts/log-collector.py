@@ -210,7 +210,7 @@ def main():
             # Check for gap
             import subprocess
             result = subprocess.run(
-                ["tail", "-1", CHAIN_LOG],
+                ["/usr/bin/tail", "-1", CHAIN_LOG],
                 capture_output=True, text=True
             )
             try:

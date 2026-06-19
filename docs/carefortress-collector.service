@@ -7,6 +7,7 @@ Wants=libvirtd.service
 Type=simple
 User=b33rmamba
 ExecStart=/usr/bin/python3 /home/b33rmamba/carefortress-hv/scripts/log-collector.py
+AppArmorProfile=carefortress-log-collector
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
