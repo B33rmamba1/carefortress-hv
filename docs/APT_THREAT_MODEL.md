@@ -104,7 +104,7 @@ The attacker can encrypt the compromised guest's filesystem; that device goes of
 | TR-6 | Detection depends on a human or pipeline acting on the audit chain | Tamper-evident logging requires an active monitoring process to have defensive value |
 | TR-7 | No in-guest EDR | Deliberate trade — device-level prevention is impossible on certified software; the architecture provides fleet-level containment instead |
 | TR-8 | Host storage exhaustion pauses guest VMs (ENOSPC) | Observed during validation: a full host disk caused QEMU to pause a guest to prevent corruption — a patient-safety availability condition. Audit-log growth is itself a self-DoS vector. Remediation: hard cap on audit-log disk usage plus storage-pressure alerting well before ENOSPC |
-| TR-9 | Audit collector daemon runs unconfined | Surfaced during validation: the intended AppArmor profiles were never loaded (declared attachment to the shared Python interpreter, unsafe to load globally). Mitigated by kernel-enforced append-only on the chain, which does not depend on collector confinement (see Test 2). Remediation tracked: convert to named profiles and attach per-service via systemd |
+| TR-9 | Audit collector daemon runs unconfined | RESOLVED: profiles converted to named-only (path attachment removed), loaded into kernel, AppArmorProfile= directive added to systemd unit. Collector process confirmed confined under carefortress-log-collector (enforce mode). Child processes transition to unconfined via ix rule -- full child confinement is future work requiring Px discrete profile transitions. Ubuntu 26.04: uutils-coreutils (Rust) ships via cargo at higher priority than GNU coreutils -- profiles allow both path sets for cross-distro compatibility. |
 
 ---
 
