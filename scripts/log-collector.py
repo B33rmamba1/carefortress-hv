@@ -7,6 +7,7 @@ Writes SHA-256 chained entries to an append-only log file.
 
 import json
 import hashlib
+import hmac
 import os
 import socket
 import threading
@@ -25,6 +26,56 @@ SERIAL_SOCKETS = {
     "mgmt-vm":    "/run/libvirt/qemu/channel/mgmt-vm-log",
     "audit-vm":   "/run/libvirt/qemu/channel/audit-vm-log",
 }
+
+
+# ── HMAC verification setup ───────────────────────────────────────────
+AGENT_KEY_FILE = "/etc/carefortress-agent.key"
+_agent_key = None
+_vm_seq = {}  # track last sequence number per VM
+
+def load_agent_key():
+    global _agent_key
+    try:
+        with open(AGENT_KEY_FILE, 'r') as f:
+            _agent_key = f.read().strip().encode()
+        print(f"[collector] HMAC verification key loaded")
+    except Exception as e:
+        print(f"[collector] WARNING: cannot load agent key: {e} -- HMAC verification disabled")
+        _agent_key = None
+
+def verify_entry(payload, raw_line):
+    """Verify HMAC signature and sequence number of an agent entry.
+    Returns (verified, warnings) where warnings is a list of issue strings."""
+    warnings = []
+
+    # Extract and verify HMAC
+    agent_hmac = payload.get("agent_hmac")
+    if agent_hmac is None:
+        warnings.append("NO_HMAC: entry has no agent_hmac field")
+    elif _agent_key is None:
+        warnings.append("KEY_MISSING: cannot verify HMAC -- no key loaded")
+    elif agent_hmac != "unsigned":
+        # Reconstruct the payload as it was before hmac was added
+        check_payload = {k: v for k, v in payload.items() if k != "agent_hmac"}
+        payload_str = __import__('json').dumps(check_payload, sort_keys=True)
+        expected = hmac.new(_agent_key, payload_str.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(agent_hmac, expected):
+            warnings.append(f"HMAC_FAIL: signature mismatch -- possible injection")
+
+    # Check sequence number
+    agent_seq = payload.get("agent_seq")
+    source_vm = payload.get("host", "unknown")
+    if agent_seq is not None:
+        last_seq = _vm_seq.get(source_vm)
+        if last_seq is not None:
+            gap = agent_seq - last_seq - 1
+            if gap > 0:
+                warnings.append(f"SEQ_GAP: expected seq {last_seq+1} got {agent_seq} -- {gap} entries missing")
+            elif agent_seq <= last_seq:
+                warnings.append(f"SEQ_REWIND: seq went backwards {last_seq} -> {agent_seq} -- possible agent restart or injection")
+        _vm_seq[source_vm] = agent_seq
+
+    return len(warnings) == 0, warnings
 
 write_lock = threading.Lock()
 last_hash = "0" * 64  # in-memory hash cache — updated inside write_lock
@@ -56,6 +107,37 @@ def write_chained_entry(raw_line, source_vm):
         payload = json.loads(raw_line.strip())
     except json.JSONDecodeError:
         payload = {"raw": raw_line.strip()}
+
+    # Verify HMAC and sequence number
+    verified, warnings = verify_entry(payload, raw_line)
+    if warnings:
+        for w in warnings:
+            print(f"[collector] SECURITY WARNING [{source_vm}]: {w}")
+        # Write a security alert entry to the chain
+        _alert = {
+            "event_type": "AGENT_SECURITY_ALERT",
+            "source_vm": source_vm,
+            "warnings": warnings,
+            "raw_preview": raw_line.strip()[:200]
+        }
+        # Write the alert AND the suspicious entry both to chain
+        # so the full record is preserved for forensics
+        with write_lock:
+            prev_hash = last_hash
+            alert_entry = {
+                "collected_ts": datetime.now(timezone.utc).isoformat(),
+                "source_vm": source_vm,
+                "payload": _alert,
+                "prev_hash": prev_hash,
+            }
+            alert_json = json.dumps(alert_entry, sort_keys=True)
+            alert_entry["chain_hash"] = hashlib.sha256(
+                (prev_hash + alert_json).encode()
+            ).hexdigest()
+            with open(CHAIN_LOG, "a") as f:
+                f.write(json.dumps(alert_entry) + "\n")
+                f.flush()
+            last_hash = alert_entry["chain_hash"]
 
     with write_lock:
         prev_hash = last_hash
@@ -153,6 +235,13 @@ def read_socket(vm_name, socket_path, ready_event=None):
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(socket_path)
             print(f"[collector] Connected to {vm_name}")
+            # Write reconnect sentinel so timeline is clear in chain
+            _rc_entry = json.dumps({
+                "event_type": "AGENT_CONNECT",
+                "source_vm": vm_name,
+                "message": "virtio-serial connection established"
+            })
+            write_chained_entry(_rc_entry, vm_name)
             if ready_event:
                 ready_event.set()
                 ready_event = None
@@ -161,6 +250,14 @@ def read_socket(vm_name, socket_path, ready_event=None):
                 chunk = sock.recv(4096)
                 if not chunk:
                     print(f"[collector] {vm_name} disconnected, reconnecting...")
+                    # Write sentinel -- any data after this is potentially untrusted
+                    _dc_entry = json.dumps({
+                        "event_type": "AGENT_DISCONNECT",
+                        "source_vm": vm_name,
+                        "message": "virtio-serial connection lost -- channel integrity unverified until reconnect",
+                        "severity": "WARNING"
+                    })
+                    write_chained_entry(_dc_entry, vm_name)
                     break
                 buf += chunk
                 while b"\n" in buf:
@@ -238,6 +335,7 @@ def main():
         # Fresh start
         write_genesis()
 
+    load_agent_key()
     # Start reader threads sequentially, waiting for each to connect
     for vm_name, socket_path in SERIAL_SOCKETS.items():
         ready = threading.Event()
