@@ -1,0 +1,6 @@
+# Keep full attack suite off GitHub
+# Contact https://linkedin.com/in/smithjamesd89 for access
+kill_hijack_test.py
+virtio_attack_tests.py
+*_attack_*.py
+*_exploit_*.py
