@@ -10,7 +10,7 @@
 
 ## The Problem
 
-Millions of certified medical devices -- infusion pumps, patient monitors, imaging systems -- run Windows XP, Windows CE, QNX, or VxWorks. FDA certification makes software updates prohibitively expensive. Replacement cycles span 10-15 years.
+Millions of certified medical devices - infusion pumps, patient monitors, imaging systems - run Windows XP, Windows CE, QNX, or VxWorks. FDA certification makes software updates prohibitively expensive. Replacement cycles span 10-15 years.
 
 These devices connect directly to hospital EHR systems via HL7 and DICOM. A compromised device on an isolated VLAN can still weaponize the permitted HL7 port (2575) to attack an EPIC integration engine. VLAN segmentation cannot distinguish a legitimate SpO2 reading from a weaponized exploit payload.
 
@@ -18,55 +18,53 @@ The 2023 FDA cybersecurity guidance mandates that manufacturers address this gap
 
 ## The Solution
 
-CareFortress wraps certified legacy device software in a modern security layer -- without requiring FDA re-certification of the underlying software.
-
-The certified OS runs unchanged inside a KVM/QEMU virtual machine. Security controls enforce at the hypervisor level, below the operating system, where a compromised application cannot reach them.cat > README.md << 'EOF'
-# CareFortress
-
-**Open source KVM/QEMU hypervisor security platform for certified legacy medical devices.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Phase](https://img.shields.io/badge/Phase-3%20In%20Progress-orange)]()
-[![Commits](https://img.shields.io/badge/Commits-GPG%20Signed-green)]()
-
----
-
-## The Problem
-
-Millions of certified medical devices -- infusion pumps, patient monitors, imaging systems -- run Windows XP, Windows CE, QNX, or VxWorks. FDA certification makes software updates prohibitively expensive. Replacement cycles span 10-15 years.
-
-These devices connect directly to hospital EHR systems via HL7 and DICOM. A compromised device on an isolated VLAN can still weaponize the permitted HL7 port (2575) to attack an EPIC integration engine. VLAN segmentation cannot distinguish a legitimate SpO2 reading from a weaponized exploit payload.
-
-The 2023 FDA cybersecurity guidance mandates that manufacturers address this gap. No accessible solution exists for the legacy fleet already in the field.
-
-## The Solution
-
-CareFortress wraps certified legacy device software in a modern security layer -- without requiring FDA re-certification of the underlying software.
+CareFortress wraps certified legacy device software in a modern security layer - without requiring FDA re-certification of the underlying software.
 
 The certified OS runs unchanged inside a KVM/QEMU virtual machine. Security controls enforce at the hypervisor level, below the operating system, where a compromised application cannot reach them.
+
+```
 Medical Device VM                    CareFortress Host (VM 102)
 
 ┌─────────────────────┐             ┌──────────────────────────────┐
-
 │  Certified OS       │             │  AppArmor QEMU profiles       │
-
 │  (XP / CE / QNX)   │──virtio─────│  SHA-256 chained audit log    │
-
 │  App software       │  serial     │  TPM PCR attestation          │
-
 │  unchanged          │             │  Inter-VM policy engine        │
-
 └─────────────────────┘             │  HL7 / DICOM content proxy    │
+                                    └──────────────────────────────┘
+```
 
-└──────────────────────────────┘
+## Hypervisor Classification
+
+CareFortress runs on KVM/QEMU, which is classified as a **Type 1.5 (hybrid) hypervisor**.
+
+| Classification | Examples | How It Works |
+|---|---|---|
+| Type 1 (bare-metal) | VMware ESXi, Xen | Hypervisor runs directly on hardware, no host OS |
+| **Type 1.5 (hybrid)** | **KVM/QEMU** | **Hypervisor is a kernel module in a general-purpose OS - Linux manages hardware, KVM provides CPU virtualization, QEMU provides device emulation** |
+| Type 2 (hosted) | VirtualBox, VMware Workstation | Hypervisor runs as a userspace application on top of a host OS |
+
+KVM occupies a unique position. The Linux kernel itself becomes the hypervisor when the KVM module is loaded. Guest VMs run as regular Linux processes under QEMU, but CPU virtualization happens at the hardware level via Intel VT-x / AMD-V extensions managed by the kernel module.
+
+**Why this matters for CareFortress:**
+
+- **Hardware-level isolation** - KVM uses CPU virtualization extensions for guest memory and execution isolation, same as Type 1 hypervisors
+- **Full Linux security stack available** - AppArmor, cgroups, seccomp, SELinux all apply to QEMU processes managing guest VMs
+- **No proprietary hypervisor layer** - the entire stack from kernel to userspace is auditable open source
+- **Production-grade maturity** - KVM powers AWS (Nitro), Google Cloud, and the majority of Linux-based cloud infrastructure
+
+The tradeoff: a general-purpose OS kernel has a larger attack surface than a purpose-built Type 1 hypervisor. CareFortress mitigates this with AppArmor mandatory access control on all QEMU processes, host hardening (CIS benchmarks), and TPM measured boot attestation.
+
+**Target deployment:** Protectli VP2420-class mini PC (fanless, medical-grade, dedicated appliance) - the host OS runs nothing except CareFortress and its dependencies.
 
 ## Security Controls
 
 | Control | Implementation | Test Result |
 |---|---|---|
-| VM Network Isolation | UFW + libvirt chain enforcement, 3 isolated networks | Network unreachable -- all directions confirmed |
+| VM Network Isolation | UFW + libvirt chain enforcement, 3 isolated networks | Network unreachable - all directions confirmed |
 | AppArmor Mandatory Access Control | Custom QEMU profiles per VM, scoped disk access | DENIED on cross-VM disk access, logged to dmesg |
-| Tamper-Evident Audit Logging | virtio-serial channels, SHA-256 chaining, chattr +a | HASH MISMATCH detected on tampered entry, 36,000+ entries validated |
+| Tamper-Evident Audit Logging | virtio-serial channels, SHA-256 chaining, chattr +a | HASH MISMATCH detected on tampered entry, 184,000+ entries validated |
+| HMAC-SHA256 Agent Signing | Shared key authentication, per-entry signature, sequence numbers | Kill-hijack attack detected - forged entry flagged NO_HMAC, preserved as forensic evidence |
 | TPM Measured Boot | tpm2-tools 5.7, SHA-256 PCR baseline, 18 PCRs | 18/18 PCRs match baseline, ATTESTATION PASSED |
 | Inter-VM Policy Engine | JSON whitelist, iptables rule injection, deny-all default | Rule enable/disable cycle clean, deny-all enforced |
 | HL7 Content Proxy | MLLP framing, per-device message type whitelist | ORU^R01 forwarded, ADT^A01 rejected, malformed payload rejected |
@@ -79,16 +77,16 @@ Every test result is committed to `docs/test-results/`.
 
 ## Agent Support
 
-CareFortress uses a manifest-driven module system. Each deployment activates only the modules required for that device type and OS.
+CareFortress uses a manifest-driven module system. Each deployment activates only the modules required for that device type and OS. All agents produce HMAC-SHA256 signed entries with monotonic sequence numbers for replay and injection detection.
 
-| Agent | Target OS | Status |
-|---|---|---|
-| Linux agent | Ubuntu, Debian, Alpine | Available |
-| Windows agent | Windows XP SP3, XP Embedded, CE | Built (PE32+ x86-64) |
-| QNX agent | QNX Neutrino 6.x | Available |
-| VxWorks agent | VxWorks 6.x (kernel + RTP) | Available |
+| Agent | Target OS | Signing | Status |
+|---|---|---|---|
+| Linux agent v2 | Ubuntu, Debian, Alpine | HMAC-SHA256 + seq | Available |
+| Windows agent | Windows XP SP3, XP Embedded, CE | HMAC-SHA256 + seq | Built (PE32+ x86-64) |
+| QNX agent | QNX Neutrino 6.x | HMAC-SHA256 + seq | Available |
+| VxWorks agent | VxWorks 6.x (kernel + RTP) | HMAC-SHA256 + seq | Available |
 
-All agents write identical SHA-256 chained JSON to the virtio-serial channel. The host collector does not care which OS generated the entry.
+All agents write identical HMAC-signed SHA-256 chained JSON to the virtio-serial channel. The host collector verifies signatures and sequence numbers on receipt - unsigned or incorrectly signed entries are flagged as AGENT_SECURITY_ALERT and preserved as forensic evidence.
 
 ## Protocol Proxies
 
@@ -100,6 +98,8 @@ All agents write identical SHA-256 chained JSON to the virtio-serial channel. Th
 The device VM never has a direct network path to the EPIC integration engine or PACS server.
 
 ## Architecture
+
+```
                 HOME / FACILITY NETWORK
                      │
                 VM 102 (Hypervisor Host)
@@ -122,7 +122,8 @@ The device VM never has a direct network path to the EPIC integration engine or 
      │                  │                  │
      └──────────────────┴──────────────────┘
                 virtio-serial channels
-            (no network path -- hypervisor level)
+            (no network path - hypervisor level)
+```
 
 ## Management API
 
@@ -149,7 +150,7 @@ curl -sk https://hypervisor-host:8443/attestation \
 
 ## Quick Start
 
-> **Note:** CareFortress is a Phase 3 project. Full deployment documentation and an installer are planned for Phase 3.9. The following is a summary of the architecture -- see `docs/` for detailed setup notes.
+> **Note:** CareFortress is a Phase 3 project. Full deployment documentation and an installer are planned for Phase 3.9. The following is a summary of the architecture - see `docs/` for detailed setup notes.
 
 **Requirements:**
 - Proxmox VE 9.x or bare metal Ubuntu 24.04+ with KVM/QEMU
@@ -181,60 +182,52 @@ python3 modules/proxies/hl7_proxy.py \
 ```
 
 ## Repository Structure
+
+```
 scripts/          Host-side security scripts (collector, validator, attestation, policy)
-
 modules/
-
-agents/         Per-OS log agents (Linux, Windows, QNX, VxWorks)
-
-proxies/        Protocol proxies (HL7, DICOM)
-
-manifests/      Deployment manifest schema and examples
-
-loader.py       Manifest-driven module loader
-
+  agents/         Per-OS log agents (Linux, Windows, QNX, VxWorks)
+  proxies/        Protocol proxies (HL7, DICOM)
+  manifests/      Deployment manifest schema and examples
+  loader.py       Manifest-driven module loader
 dashboard/        FastAPI REST management API
-
 policy/           Inter-VM network policy definitions
-
 docs/
-
-test-results/   Test evidence for every security control
-
-tpm/            PCR baseline files
-
-diagrams/       Network topology diagrams
-
-apparmor-*.txt  AppArmor profiles for host scripts
+  test-results/   Test evidence for every security control
+  tpm/            PCR baseline files
+  diagrams/       Network topology diagrams
+  apparmor-*.txt  AppArmor profiles for host scripts
+```
 
 ## Project Status
 
 | Phase | Status |
 |---|---|
-| Phase 0 -- Security Baseline | Complete |
-| Phase 1 -- KVM Foundation | Complete |
-| Phase 2 -- Security Layer | Complete |
-| Phase 3.0 -- Network Hardening | Complete |
-| Phase 3.1 -- NTP Hardening | Complete |
-| Phase 3.2 -- Log Rotation + AppArmor | Complete |
-| Phase 3.3 -- Modular Agent Architecture | Complete |
-| Phase 3.4 -- Protocol Proxies | Complete |
-| Phase 3.5 -- FastAPI Dashboard | Complete |
-| Phase 3.6 -- ARM Validation | Planned |
-| Phase 3.7 -- Compliance Package | Planned |
-| Phase 3.8 -- Business / Legal | Planned |
-| Phase 3.9 -- Demo Package + Public Launch | Planned |
+| Phase 0 - Security Baseline | Complete |
+| Phase 1 - KVM Foundation | Complete |
+| Phase 2 - Security Layer | Complete |
+| Phase 3.0 - Network Hardening | Complete |
+| Phase 3.1 - NTP Hardening | Complete |
+| Phase 3.2 - Log Rotation + AppArmor | Complete |
+| Phase 3.3 - Modular Agent Architecture | Complete |
+| Phase 3.4 - Protocol Proxies | Complete |
+| Phase 3.5 - FastAPI Dashboard | Complete |
+| Phase 3.6 - ARM Validation | Planned |
+| Phase 3.7 - Compliance Package | Complete |
+| Phase 3.8 - Business / Legal | Planned |
+| Phase 3.9 - Demo Package | Planned |
+| Phase 4 - SIEM Integration | [Planned](docs/PHASE4_SIEM.md) |
 
 ## Author
 
-James Smith -- Security Engineer | carefortress.dev  
-[linkedin.com/in/smithjamesd89](https://linkedin.com/in/smithjamesd89)  
+James Smith - Security Engineer | [carefortress.dev](https://carefortress.dev)
+[linkedin.com/in/smithjamesd89](https://linkedin.com/in/smithjamesd89)
 GPG: `0F882789E2917D31199070ED192C47200722413B`
 
 All commits are GPG signed. The work is verifiable.
 
 ## License
 
-MIT License -- see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](LICENSE) for details.
 
 CareFortress is open source because security tooling that nobody can inspect is security theater.
