@@ -41,7 +41,7 @@
     {
       "id": "rule-001",
       "description": "mgmt-vm may ping medical-vm for health check",
-      "enabled": false,
+      "enabled": true,
       "src_vm": "mgmt-vm",
       "dst_vm": "medical-vm",
       "protocol": "icmp",

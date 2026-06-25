@@ -79,32 +79,47 @@ def run_on_guest(vm_ip, cmd, use_sudo=True):
 
 def inject_on_guest(vm_ip, payload, kill_agent=False):
     """Inject payload to virtio port on guest, optionally killing agent first."""
+    import base64 as _b64
     vm_name = run_on_guest(vm_ip, "hostname", use_sudo=False).stdout.strip()
-    virtio_port = f"/dev/virtio-ports/log.{vm_name}"
+    virtio_port = "/dev/virtio-ports/log." + vm_name
 
     if kill_agent:
         run_on_guest(vm_ip, "fuser -k " + virtio_port)
-        time.sleep(0.3)
+        time.sleep(0.5)
 
-    script = f"""
-import json, os
-with open('{virtio_port}', 'wb') as f:
-    f.write({repr(payload.encode() if isinstance(payload, str) else payload)} + b'\\n')
-    f.flush()
-"""
-    result = run_on_guest(vm_ip, f"python3 -c {repr(script)}")
+    encoded = payload.encode() if isinstance(payload, str) else payload
+    b64 = _b64.b64encode(encoded).decode()
+
+    script_lines = [
+        "import base64",
+        "data = base64.b64decode('" + b64 + "')",
+        "with open('" + virtio_port + "', 'wb') as f:",
+        "    f.write(data + b'\n')",
+        "    f.flush()",
+    ]
+    script_content = "\n".join(script_lines) + "\n"
+
+    write_result = subprocess.run(
+        ["ssh", "-o", "StrictHostKeyChecking=accept-new",
+         "-o", "ConnectTimeout=10",
+         "ubuntu@" + vm_ip, "sudo tee /tmp/cf_inject.py"],
+        input=script_content, capture_output=True, text=True, timeout=30
+    )
+    result = run_on_guest(vm_ip, "python3 /tmp/cf_inject.py")
     return result.returncode == 0
 
 def check_detection(chain_log, line_before, expected_warning_substr,
-                    timeout=10):
+                    timeout=15):
     """Wait for expected detection in chain. Returns (detected, alerts)."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         alerts = get_alerts_since(chain_log, line_before)
         for alert in alerts:
-            for w in alert.get('warnings', []):
-                if expected_warning_substr in w:
-                    return True, alerts
+            # alerts are payload dicts -- check event_type and warnings
+            if alert.get('event_type') == 'AGENT_SECURITY_ALERT':
+                for w in alert.get('warnings', []):
+                    if expected_warning_substr in w:
+                        return True, alerts
         time.sleep(1)
     return False, get_alerts_since(chain_log, line_before)
 

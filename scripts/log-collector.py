@@ -17,14 +17,20 @@ from datetime import datetime, timezone
 LOG_DIR = os.path.expanduser("~/carefortress-hv/logs")
 CHAIN_LOG = os.path.join(LOG_DIR, "audit-chain.log")
 AUDIT_VM_USER = "ubuntu"
-AUDIT_VM_IP = "10.10.3.74"
+AUDIT_VM_IP = "10.10.3.30"
 AUDIT_VM_KEY = os.path.expanduser("~/.ssh/id_ed25519")
 SCP_INTERVAL = 300
 
+import glob as _glob
+
+def _find_socket(vm_name):
+    matches = _glob.glob(f"/run/libvirt/qemu/channel/*-{vm_name}/log.{vm_name}")
+    return matches[0] if matches else f"/run/libvirt/qemu/channel/{vm_name}-log"
+
 SERIAL_SOCKETS = {
-    "medical-vm": "/run/libvirt/qemu/channel/medical-vm-log",
-    "mgmt-vm":    "/run/libvirt/qemu/channel/mgmt-vm-log",
-    "audit-vm":   "/run/libvirt/qemu/channel/audit-vm-log",
+    "medical-vm": _find_socket("medical-vm"),
+    "mgmt-vm":    _find_socket("mgmt-vm"),
+    "audit-vm":   _find_socket("audit-vm"),
 }
 
 
