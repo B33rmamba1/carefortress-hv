@@ -119,6 +119,8 @@ def main():
         sys.stderr.write(f"Serial port {SERIAL_PORT} not found after 30s\n")
         sys.exit(1)
 
+    agent_hash = hashlib.sha256(open(__file__, "rb").read()).hexdigest()
+
     with open(SERIAL_PORT, "wb", buffering=0) as port:
         write_entry(port, key, seq_ref, "START",
                     "CareFortress log agent v2 started (HMAC-signed)")
@@ -130,6 +132,7 @@ def main():
                     "load_1m": load[0],
                     "load_5m": load[1],
                     "load_15m": load[2],
+                    "agent_hash": agent_hash,
                 })
                 users = get_logged_in_users()
                 if users != last_users:

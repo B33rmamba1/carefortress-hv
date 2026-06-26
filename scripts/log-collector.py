@@ -19,7 +19,7 @@ CHAIN_LOG = os.path.join(LOG_DIR, "audit-chain.log")
 AUDIT_VM_USER = "ubuntu"
 AUDIT_VM_IP = "10.10.3.30"
 AUDIT_VM_KEY = os.path.expanduser("~/.ssh/id_ed25519")
-SCP_INTERVAL = 300
+SCP_INTERVAL = 60
 
 import glob as _glob
 
