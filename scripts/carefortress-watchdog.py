@@ -88,6 +88,12 @@ def main():
     last_pid = find_agent_pid()
     if last_pid:
         sys.stderr.write(f"watchdog: monitoring agent PID {last_pid}\n")
+    else:
+        sys.stderr.write(f"watchdog: agent not running on startup -- starting now\n")
+        if restart_agent():
+            time.sleep(3)
+            last_pid = find_agent_pid()
+            sys.stderr.write(f"watchdog: agent started as PID {last_pid}\n")
 
     while True:
         time.sleep(CHECK_INTERVAL)
