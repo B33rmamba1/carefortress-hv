@@ -38,6 +38,7 @@ SERIAL_SOCKETS = {
 AGENT_KEY_FILE = "/etc/carefortress-agent.key"
 _agent_key = None
 _vm_seq = {}  # track last sequence number per VM
+_expected_agent_hash = None  # cached expected hash from config
 
 def load_agent_key():
     global _agent_key
@@ -48,6 +49,17 @@ def load_agent_key():
     except Exception as e:
         print(f"[collector] WARNING: cannot load agent key: {e} -- HMAC verification disabled")
         _agent_key = None
+
+def load_expected_agent_hash():
+    global _expected_agent_hash
+    hash_file = os.path.join(os.path.expanduser("~/carefortress-hv/config"), "agent-hash.sha256")
+    try:
+        with open(hash_file, 'r') as f:
+            _expected_agent_hash = f.read().strip()
+        print(f"[collector] Expected agent hash loaded: {_expected_agent_hash[:16]}...")
+    except Exception as e:
+        print(f"[collector] WARNING: cannot load agent hash: {e} -- hash verification disabled")
+        _expected_agent_hash = None
 
 def verify_entry(payload, raw_line):
     """Verify HMAC signature and sequence number of an agent entry.
@@ -80,6 +92,12 @@ def verify_entry(payload, raw_line):
             elif agent_seq <= last_seq:
                 warnings.append(f"SEQ_REWIND: seq went backwards {last_seq} -> {agent_seq} -- possible agent restart or injection")
         _vm_seq[source_vm] = agent_seq
+
+    # Check agent binary hash (present in HEARTBEAT entries)
+    agent_hash = payload.get("agent_hash")
+    if agent_hash is not None and _expected_agent_hash is not None:
+        if agent_hash != _expected_agent_hash:
+            warnings.append(f"AGENT_HASH_MISMATCH: expected {_expected_agent_hash[:16]}... got {agent_hash[:16]}... -- possible binary tampering")
 
     return len(warnings) == 0, warnings
 
@@ -342,6 +360,7 @@ def main():
         write_genesis()
 
     load_agent_key()
+    load_expected_agent_hash()
     # Start reader threads sequentially, waiting for each to connect
     for vm_name, socket_path in SERIAL_SOCKETS.items():
         ready = threading.Event()

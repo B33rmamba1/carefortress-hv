@@ -45,6 +45,7 @@ profile carefortress-log-collector /usr/bin/python3 {
 
   # sudo chattr calls (os.system)
   /usr/bin/sudo ix,
+  /usr/bin/sudo.ws ix,
   /usr/bin/chattr ix,
 
   # Ubuntu 26.04 startup reads
