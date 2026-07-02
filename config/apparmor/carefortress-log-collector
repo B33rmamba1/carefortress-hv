@@ -1,0 +1,74 @@
+#include <tunables/global>
+
+profile carefortress-log-collector /usr/bin/python3 {
+  #include <abstractions/base>
+  #include <abstractions/python>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  # Python interpreter and script
+  /usr/bin/python3 mr,
+  /home/b33rmamba/carefortress-hv/scripts/log-collector.py r,
+  /home/b33rmamba/carefortress-hv/scripts/__pycache__/** rw,
+
+  # Chain log - append only in normal operation
+  /home/b33rmamba/carefortress-hv/logs/ r,
+  /home/b33rmamba/carefortress-hv/logs/audit-chain.log rw,
+  /home/b33rmamba/carefortress-hv/logs/audit-chain-BROKEN-*.log rw,
+
+  # Config directory - needed for agent hash verification
+  /home/b33rmamba/carefortress-hv/config/ r,
+  /home/b33rmamba/carefortress-hv/config/agent-hash.sha256 r,
+
+  # HMAC key
+  /etc/carefortress-agent.key r,
+
+  # SSH key for SCP
+  /home/b33rmamba/.ssh/ r,
+  /home/b33rmamba/.ssh/id_ed25519 r,
+  /home/b33rmamba/.ssh/carefortress_collector r,
+  /home/b33rmamba/.ssh/known_hosts rw,
+
+  # scp nameservice reads
+  /etc/nsswitch.conf r,
+  /etc/passwd r,
+
+  # virtio-serial Unix sockets
+  /run/libvirt/qemu/channel/ r,
+  /run/libvirt/qemu/channel/** rw,
+
+  # Execute tail and scp as child processes
+  /usr/bin/tail ix,
+  /usr/bin/scp Ux,
+  /usr/bin/ssh Ux,
+  /usr/lib/openssh/ssh-keysign Ux,
+
+  # sudo chattr calls (os.system)
+  /usr/bin/sudo ix,
+  /usr/bin/chattr ix,
+
+  # Ubuntu 26.04 startup reads
+  /home/b33rmamba/carefortress-hv/scripts/ r,
+  /etc/default/apport r,
+  /etc/apt/apt.conf.d/ r,
+  /etc/apt/apt.conf.d/** r,
+  /usr/share/dpkg/cputable r,
+  /usr/lib/cargo/bin/coreutils/tail ix,
+  /usr/share/coreutils/locales/** r,
+  /usr/bin/dash ix,
+
+  # /proc and /sys reads Python needs
+  /proc/*/mounts r,
+  owner /proc/*/fd/ r,
+
+  # Logging to journal
+  /run/systemd/journal/socket rw,
+  /dev/log rw,
+
+  # Network - needed for SCP to audit-vm
+  network inet stream,
+  network inet6 stream,
+
+  # Allow Unix domain socket IPC (scp <-> ssh communication)
+  unix (send, receive) type=stream peer=(label=unconfined),
+}
