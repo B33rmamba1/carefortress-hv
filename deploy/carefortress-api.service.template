@@ -1,0 +1,21 @@
+[Unit]
+Description=CareFortress Management API
+After=network.target libvirtd.service carefortress-collector.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User=CF_USER
+WorkingDirectory=CF_INSTALL_DIR/dashboard
+EnvironmentFile=/etc/carefortress-api.env
+ExecStart=CF_UVICORN_PATH api:app \
+    --ssl-keyfile CF_INSTALL_DIR/dashboard/certs/key.pem \
+    --ssl-certfile CF_INSTALL_DIR/dashboard/certs/cert.pem \
+    --host CF_HOST_IP --port 8443 \
+    --app-dir CF_INSTALL_DIR/dashboard \
+    --no-server-header
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
