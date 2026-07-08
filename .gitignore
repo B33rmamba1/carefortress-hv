@@ -9,3 +9,6 @@ logs/
 *.pyc
 __pycache__/
 *.pyo
+certs/*.key
+dashboard/certs/key.pem
+dashboard/certs/*.key
