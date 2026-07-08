@@ -1,0 +1,44 @@
+Pseudo-terminal will not be allocated because stdin is not a terminal.
+Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.8.0-124-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Wed Jul  8 10:39:55 UTC 2026
+
+  System load: 0.0               Memory usage: 10%   Processes:       139
+  Usage of /:  9.1% of 18.33GB   Swap usage:   0%    Users logged in: 0
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your Internet connection or proxy settings
+
+
+=== HV-ISO-01 Cross-segment isolation from medical-vm ===
+=== Wed Jul  8 10:39:56 UTC 2026 ===
+medical-vm
+    inet 10.10.1.177/24 metric 100 brd 10.10.1.255 scope global dynamic enp1s0
+--- mgmt-vm 10.10.2.161 ---
+ping: connect: Network is unreachable
+bash: connect: Network is unreachable
+bash: line 1: /dev/tcp/10.10.2.161/22: Network is unreachable
+TCP22 blocked - PASS
+--- audit-vm 10.10.3.30 ---
+ping: connect: Network is unreachable
+bash: connect: Network is unreachable
+bash: line 1: /dev/tcp/10.10.3.30/22: Network is unreachable
+TCP22 blocked - PASS
+--- host SSH 10.10.1.1:22 ---
+blocked - PASS
+--- host API 10.10.1.1:8443 ---
+blocked - PASS
