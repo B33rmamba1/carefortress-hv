@@ -27,11 +27,7 @@ def _find_socket(vm_name):
     matches = _glob.glob(f"/run/libvirt/qemu/channel/*-{vm_name}/log.{vm_name}")
     return matches[0] if matches else f"/run/libvirt/qemu/channel/{vm_name}-log"
 
-SERIAL_SOCKETS = {
-    "medical-vm": _find_socket("medical-vm"),
-    "mgmt-vm":    _find_socket("mgmt-vm"),
-    "audit-vm":   _find_socket("audit-vm"),
-}
+VM_NAMES = ["medical-vm", "mgmt-vm", "audit-vm"]
 
 
 # ── HMAC verification setup ───────────────────────────────────────────
@@ -251,10 +247,11 @@ def write_genesis(prev_hash=None, msg="CareFortress collector started", broken_r
     print(f"[collector] Genesis block written -- hash: {last_hash[:16]}...")
 
 
-def read_socket(vm_name, socket_path, ready_event=None):
+def read_socket(vm_name, ready_event=None):
     print(f"[collector] Starting reader for {vm_name}")
     while True:
         sock = None
+        socket_path = _find_socket(vm_name)
         try:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(socket_path)
@@ -362,11 +359,11 @@ def main():
     load_agent_key()
     load_expected_agent_hash()
     # Start reader threads sequentially, waiting for each to connect
-    for vm_name, socket_path in SERIAL_SOCKETS.items():
+    for vm_name in VM_NAMES:
         ready = threading.Event()
         t = threading.Thread(
             target=read_socket,
-            args=(vm_name, socket_path, ready),
+            args=(vm_name, ready),
             daemon=True,
             name=f"reader-{vm_name}"
         )
