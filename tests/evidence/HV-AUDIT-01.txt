@@ -1,0 +1,39 @@
+Pseudo-terminal will not be allocated because stdin is not a terminal.
+Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.8.0-124-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Sun Jul 12 10:41:44 UTC 2026
+
+  System load: 0.0               Memory usage: 10%   Processes:       144
+  Usage of /:  9.3% of 18.33GB   Swap usage:   0%    Users logged in: 0
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your Internet connection or proxy settings
+
+
+=== HV-AUDIT-01 - Agent kill and recovery from medical-vm ===
+=== Sun Jul 12 10:41:44 UTC 2026 ===
+--- Agent current status (post-recovery) ---
+root        1196  0.0  0.7  25500 16004 ?        S    10:40   0:00 python3 /usr/local/bin/carefortress-log-agent.py
+--- Watchdog status ---
+active
+
+=== Chain evidence ===
+{"collected_ts": "2026-07-02T14:23:26.086036+00:00", "source_vm": "medical-vm", "payload": {"ts": "2026-07-02T14:23:21.632234+00:00", "host": "medical-vm", "type": "AGENT_KILLED", "msg": "watchdog detected agent death (PID 1831)", "agent_seq": -1, "agent_hmac": "7cd948b7800cc79ab9f066ae8fedb85574fc7b1a26bd57fffa4f126dd8cea346"}, "prev_hash": "7869912e89d81db8ba8bac630b440aab9e4fc271c99f7b8911a07ff6671ef759", "chain_hash": "980032fb4173280ab69ec2b9b18d12fed018bc0a5bcc38ba3b7f732a86bf71b8"}
+{"collected_ts": "2026-07-02T14:23:28.113317+00:00", "source_vm": "medical-vm", "payload": {"event_type": "AGENT_SECURITY_ALERT", "source_vm": "medical-vm", "warnings": ["SEQ_GAP: expected seq 0 got 67098 -- 67098 entries missing"], "raw_preview": "{\"ts\": \"2026-07-02T14:23:23.658734+00:00\", \"host\": \"medical-vm\", \"type\": \"START\", \"msg\": \"CareFortress log agent v2 started (HMAC-signed)\", \"agent_seq\": 67098, \"agent_hmac\": \"8b66c3a5553a0d1b2a8adebcb"}, "prev_hash": "70d7c57aea846d3c245c1147550ac566ccbbbf695db638e29ceb23147d1e0f20", "chain_hash": "146c251fa6b1e9efbb7864f33322994d2f1220a6d7928df757014d7bb7adbaeb"}
+{"collected_ts": "2026-07-12T10:40:29.054249+00:00", "source_vm": "medical-vm", "payload": {"event_type": "AGENT_SECURITY_ALERT", "source_vm": "medical-vm", "warnings": ["SEQ_REWIND: seq went backwards 167561 -> -1 -- possible agent restart or injection"], "raw_preview": "{\"ts\": \"2026-07-12T10:40:26.997678+00:00\", \"host\": \"medical-vm\", \"type\": \"AGENT_KILLED\", \"msg\": \"watchdog detected agent death (PID 708)\", \"agent_seq\": -1, \"agent_hmac\": \"67e290146fb30667dca70c100f650"}, "prev_hash": "f955fb7bbb425689bdffb1638bc01a72b495ee56d57094b3ab5a0b48e94bc9b8", "chain_hash": "46b61e389ebb6f03f7b4f376cbc49407697d108c43cd7377c0b06f91fbafd39e"}
+{"collected_ts": "2026-07-12T10:40:29.054418+00:00", "source_vm": "medical-vm", "payload": {"ts": "2026-07-12T10:40:26.997678+00:00", "host": "medical-vm", "type": "AGENT_KILLED", "msg": "watchdog detected agent death (PID 708)", "agent_seq": -1, "agent_hmac": "67e290146fb30667dca70c100f6503114c4a3a415bf4bb94f8d0c903d1c7cd3e"}, "prev_hash": "46b61e389ebb6f03f7b4f376cbc49407697d108c43cd7377c0b06f91fbafd39e", "chain_hash": "72b1942d617d881729cf73def4598c59d4bd93c2951e72dd56f18f1ae986179b"}
+{"collected_ts": "2026-07-12T10:40:31.079913+00:00", "source_vm": "medical-vm", "payload": {"event_type": "AGENT_SECURITY_ALERT", "source_vm": "medical-vm", "warnings": ["SEQ_GAP: expected seq 0 got 167562 -- 167562 entries missing"], "raw_preview": "{\"ts\": \"2026-07-12T10:40:29.023163+00:00\", \"host\": \"medical-vm\", \"type\": \"START\", \"msg\": \"CareFortress log agent v2 started (HMAC-signed)\", \"agent_seq\": 167562, \"agent_hmac\": \"0de27dd7cfbef105b9870a44"}, "prev_hash": "5a90c25cfed7dd3206c99b912e2f2c1f5040300a581f567600b1c5b6bbcbd072", "chain_hash": "7f6b0df9fc0e733dbc4a58f0fb7dbb11a9b9fb943de9e28a0dde800391c81904"}
