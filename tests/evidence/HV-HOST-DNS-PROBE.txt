@@ -1,0 +1,108 @@
+Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.8.0-124-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Sun Jul 12 10:20:04 UTC 2026
+
+  System load: 0.0               Memory usage: 10%   Processes:       137
+  Usage of /:  9.2% of 18.33GB   Swap usage:   0%    Users logged in: 0
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your Internet connection or proxy settings
+
+
+=== HV-HOST-DNS-PROBE - DNS exposure analysis from medical-vm ===
+=== Sun Jul 12 10:20:04 UTC 2026 ===
+
+--- resolv.conf ---
+# This is /run/systemd/resolve/stub-resolv.conf managed by man:systemd-resolved(8).
+# Do not edit.
+#
+# This file might be symlinked as /etc/resolv.conf. If you're looking at
+# /etc/resolv.conf and seeing this text, you have followed the symlink.
+#
+# This is a dynamic resolv.conf file for connecting local clients to the
+# internal DNS stub resolver of systemd-resolved. This file lists all
+# configured search domains.
+#
+# Run "resolvectl status" to see details about the uplink DNS servers
+# currently in use.
+#
+# Third party programs should typically not access this file directly, but only
+# through the symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a
+# different way, replace this symlink by a static file or a different symlink.
+#
+# See man:systemd-resolved.service(8) for details about the supported modes of
+# operation for /etc/resolv.conf.
+
+nameserver 127.0.0.53
+options edns0 trust-ad
+search .
+
+--- Can we resolve external names through the host? ---
+Server:		10.10.1.1
+Address:	10.10.1.1#53
+
+** server can't find google.com: REFUSED
+
+nslookup not available
+Using domain server:
+Name: 10.10.1.1
+Address: 10.10.1.1#53
+Aliases: 
+
+Host google.com not found: 5(REFUSED)
+host not available
+
+--- Can we resolve internal hostnames? ---
+Server:		10.10.1.1
+Address:	10.10.1.1#53
+
+Name:	medical-vm
+Address: 10.10.1.177
+** server can't find medical-vm: REFUSED
+
+nslookup not available
+Server:		10.10.1.1
+Address:	10.10.1.1#53
+
+** server can't find mgmt-vm: REFUSED
+
+nslookup not available
+Server:		10.10.1.1
+Address:	10.10.1.1#53
+
+** server can't find audit-vm: REFUSED
+
+nslookup not available
+
+--- Can we do zone transfer? ---
+Server:		10.10.1.1
+Address:	10.10.1.1#53
+
+** server can't find 1.1.10.10.in-addr.arpa: REFUSED
+
+nslookup not available
+
+--- Can we reach external DNS directly (should fail - no internet)? ---
+bash: connect: Network is unreachable
+bash: line 1: /dev/tcp/8.8.8.8/53: Network is unreachable
+external DNS blocked - PASS
+bash: connect: Network is unreachable
+bash: line 1: /dev/udp/8.8.8.8/53: Network is unreachable
+external DNS UDP blocked - PASS
+
+--- Raw TCP data channel test (can we send arbitrary data on 53?) ---
+TCP53 accepted data - potential tunnel
