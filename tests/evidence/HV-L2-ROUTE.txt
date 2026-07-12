@@ -1,0 +1,60 @@
+Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.8.0-124-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Sun Jul 12 10:11:40 UTC 2026
+
+  System load: 0.12              Memory usage: 10%   Processes:       138
+  Usage of /:  9.2% of 18.33GB   Swap usage:   0%    Users logged in: 0
+
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your Internet connection or proxy settings
+
+
+=== HV-L2-ROUTE - Static route escape attempt from medical-vm ===
+=== Sun Jul 12 10:11:40 UTC 2026 ===
+
+--- Current routing table (before) ---
+10.10.1.0/24 dev enp1s0 proto kernel scope link src 10.10.1.177 metric 100 
+10.10.1.1 dev enp1s0 proto dhcp scope link src 10.10.1.177 metric 100 
+
+--- Adding static routes to mgmtnet and auditnet via gateway ---
+
+--- Routing table (after) ---
+10.10.1.0/24 dev enp1s0 proto kernel scope link src 10.10.1.177 metric 100 
+10.10.1.1 dev enp1s0 proto dhcp scope link src 10.10.1.177 metric 100 
+10.10.2.0/24 via 10.10.1.1 dev enp1s0 
+10.10.3.0/24 via 10.10.1.1 dev enp1s0 
+
+--- Attempt reach mgmt-vm 10.10.2.161 ---
+
+--- 10.10.2.161 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1051ms
+
+TCP22 blocked - PASS
+
+--- Attempt reach audit-vm 10.10.3.30 ---
+
+--- 10.10.3.30 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 1016ms
+
+TCP22 blocked - PASS
+
+--- Attempt host SSH with route in place ---
+blocked - PASS
+
+--- Cleanup: remove added routes ---
+10.10.1.0/24 dev enp1s0 proto kernel scope link src 10.10.1.177 metric 100 
+10.10.1.1 dev enp1s0 proto dhcp scope link src 10.10.1.177 metric 100 
