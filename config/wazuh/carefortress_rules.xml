@@ -1,0 +1,82 @@
+<group name="carefortress,">
+
+  <!-- Base rule: any CareFortress audit chain entry -->
+  <rule id="100100" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="log_type">carefortress</field>
+    <description>CareFortress audit chain entry</description>
+  </rule>
+
+  <!-- AGENT_KILLED: watchdog detected agent death -->
+  <rule id="100101" level="12">
+    <if_sid>100100</if_sid>
+    <field name="payload.type">AGENT_KILLED</field>
+    <description>CareFortress: Agent killed on $(payload.host) - watchdog detected death of PID $(payload.msg)</description>
+    <group>carefortress,agent_killed,</group>
+  </rule>
+
+  <!-- AGENT_SECURITY_ALERT: HMAC failure, seq rewind, hash mismatch -->
+  <rule id="100102" level="12">
+    <if_sid>100100</if_sid>
+    <field name="payload.event_type">AGENT_SECURITY_ALERT</field>
+    <description>CareFortress: Security alert on $(source_vm) - $(payload.warnings)</description>
+    <group>carefortress,security_alert,</group>
+  </rule>
+
+  <!-- AGENT_DISCONNECT: virtio-serial connection lost -->
+  <rule id="100103" level="7">
+    <if_sid>100100</if_sid>
+    <field name="payload.event_type">AGENT_DISCONNECT</field>
+    <description>CareFortress: Agent disconnected on $(source_vm) - channel integrity unverified</description>
+    <group>carefortress,agent_disconnect,</group>
+  </rule>
+
+  <!-- AGENT_CONNECT: virtio-serial connection established -->
+  <rule id="100104" level="3">
+    <if_sid>100100</if_sid>
+    <field name="payload.event_type">AGENT_CONNECT</field>
+    <description>CareFortress: Agent connected on $(source_vm)</description>
+    <group>carefortress,agent_connect,</group>
+  </rule>
+
+  <!-- GENESIS: collector restart -->
+  <rule id="100105" level="7">
+    <if_sid>100100</if_sid>
+    <field name="payload.type">GENESIS</field>
+    <description>CareFortress: Collector restarted - $(payload.msg)</description>
+    <group>carefortress,collector_restart,</group>
+  </rule>
+
+  <!-- CHAIN_BREAK: critical integrity failure -->
+  <rule id="100106" level="15">
+    <if_sid>100100</if_sid>
+    <match>CHAIN_BREAK</match>
+    <description>CareFortress: CHAIN BREAK detected - audit integrity compromised</description>
+    <group>carefortress,chain_break,</group>
+  </rule>
+
+  <!-- HMAC failure specifically -->
+  <rule id="100107" level="14">
+    <if_sid>100102</if_sid>
+    <match>HMAC_FAIL</match>
+    <description>CareFortress: HMAC signature mismatch on $(source_vm) - possible injection attack</description>
+    <group>carefortress,hmac_failure,</group>
+  </rule>
+
+  <!-- SEQ_REWIND: sequence number went backwards -->
+  <rule id="100108" level="12">
+    <if_sid>100102</if_sid>
+    <match>SEQ_REWIND</match>
+    <description>CareFortress: Sequence rewind on $(source_vm) - possible agent restart or injection</description>
+    <group>carefortress,seq_rewind,</group>
+  </rule>
+
+  <!-- AGENT_HASH_MISMATCH: binary tampering -->
+  <rule id="100109" level="14">
+    <if_sid>100102</if_sid>
+    <match>AGENT_HASH_MISMATCH</match>
+    <description>CareFortress: Agent binary hash mismatch on $(source_vm) - possible tampering</description>
+    <group>carefortress,binary_tamper,</group>
+  </rule>
+
+</group>
