@@ -37,7 +37,7 @@ const CONFIG = {
   // Wazuh Filebeat HTTP input endpoint (set once Phase 4 SIEM is live)
   // Format: "https://your-wazuh-host:9200/filebeat-..." or Filebeat HTTP input
   // Leave null to skip Wazuh forwarding until SIEM is deployed
-  WAZUH_ENDPOINT: null,
+  WAZUH_ENDPOINT: 'https://webhook.carefortress.dev',
 
   // Optional: Wazuh API key or basic auth token if required
   WAZUH_AUTH: null,
