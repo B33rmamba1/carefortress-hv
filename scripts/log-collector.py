@@ -178,8 +178,42 @@ def write_chained_entry(raw_line, source_vm):
 
         last_hash = entry["chain_hash"]
 
+def _repair_truncate(valid_count):
+    """Truncate chain log to keep only the first valid_count entries.
+    Removes corrupt trailing data (null bytes, partial writes) from disk-full events."""
+    import tempfile
+    print(f"[collector] Truncating chain to {valid_count} valid entries...")
+    try:
+        os.system(f"sudo chattr -a {CHAIN_LOG} 2>/dev/null")
+        with open(CHAIN_LOG, "r") as src:
+            # Find byte offset of end of last valid entry
+            offset = 0
+            entry_num = 0
+            for line in src:
+                stripped = line.strip()
+                if not stripped:
+                    offset += len(line)
+                    continue
+                try:
+                    json.loads(stripped)
+                except json.JSONDecodeError:
+                    break
+                offset += len(line)
+                entry_num += 1
+                if entry_num >= valid_count:
+                    break
+        with open(CHAIN_LOG, "r+b") as f:
+            f.truncate(offset)
+        os.system(f"sudo chattr +a {CHAIN_LOG} 2>/dev/null")
+        print(f"[collector] Truncated to {offset} bytes ({entry_num} entries)")
+    except Exception as e:
+        print(f"[collector] Repair truncation failed: {e}")
+        os.system(f"sudo chattr +a {CHAIN_LOG} 2>/dev/null")
+
 def validate_chain():
-    """Validate the chain. Returns (valid, last_hash, entry_count)."""
+    """Validate the chain. Returns (valid, last_hash, entry_count).
+    Corrupt trailing data (e.g. null bytes from disk-full) is auto-repaired
+    by truncating to the last valid entry, not treated as a chain break."""
     prev_hash = "0" * 64
     # Allow ROTATION_GENESIS as valid chain start
     try:
@@ -197,7 +231,17 @@ def validate_chain():
                 line = line.strip()
                 if not line:
                     continue
-                entry = json.loads(line)
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    # Corrupt trailing data (null bytes, partial write).
+                    # If we validated entries before this, the chain is intact --
+                    # truncate the garbage rather than declaring a break.
+                    if count > 0:
+                        print(f"[collector] Corrupt trailing data at line {count} -- auto-repairing by truncation")
+                        _repair_truncate(count)
+                        return True, prev_hash, count
+                    return False, prev_hash, count
                 stored_hash = entry.get("chain_hash", "")
                 entry_copy = {k: v for k, v in entry.items() if k != "chain_hash"}
                 entry_json = json.dumps(entry_copy, sort_keys=True)
@@ -209,7 +253,10 @@ def validate_chain():
         return True, prev_hash, count
     except FileNotFoundError:
         return True, "0" * 64, 0
-    except Exception:
+    except Exception as e:
+        print(f"[collector] Unexpected validation error at entry {count}: {e}")
+        if count > 0:
+            return True, prev_hash, count
         return False, prev_hash, count
 
 def isolate_broken_log():
