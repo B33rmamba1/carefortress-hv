@@ -396,7 +396,21 @@ def main():
             except Exception:
                 last_hash = last_valid_hash
         else:
+            # Cooldown: refuse to rotate if we rotated recently (prevents loop)
+            _lockfile = os.path.join(LOG_DIR, ".rotation_cooldown")
+            _cooldown_seconds = 300  # 5 minutes
+            try:
+                if os.path.exists(_lockfile):
+                    _age = time.time() - os.path.getmtime(_lockfile)
+                    if _age < _cooldown_seconds:
+                        print(f"[collector] CHAIN BREAK after {count} entries, but rotation cooldown active ({int(_age)}s ago). Exiting to prevent loop.")
+                        sys.exit(1)
+            except Exception:
+                pass
             print(f"[collector] CHAIN BREAK DETECTED after {count} entries — isolating broken log")
+            # Write cooldown lockfile
+            with open(_lockfile, "w") as _lf:
+                _lf.write(str(time.time()))
             broken_ref = isolate_broken_log()
             write_genesis(msg="New chain after break", broken_ref=broken_ref)
     else:
