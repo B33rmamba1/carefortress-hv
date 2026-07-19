@@ -32,6 +32,32 @@ const CONFIG = {
   WAZUH_AUTH: null,
 };
 
+
+// ---------------------------------------------------------------------------
+// AWS Canary Token Pool (Thinkst canarytokens.org)
+// Each token fires an alert via CloudTrail + webhook on any AWS API call.
+// Visitor IP hash selects a pool slot deterministically.
+// ---------------------------------------------------------------------------
+
+const AWS_CANARY_POOL = [
+  // -----------------------------------------------------------------------
+  // POOL KEYS REDACTED FROM REPOSITORY
+  // Real Thinkst canarytokens.org AWS key pairs are configured only in
+  // the deployed Cloudflare Worker. 20 slots, each with a unique AKIA key
+  // and secret that fires a CloudTrail alert on any AWS API call.
+  // To populate: generate tokens at canarytokens.org/generate (type: AWS)
+  // and add them here as { id: N, key: "AKIA...", secret: "..." }
+  // -----------------------------------------------------------------------
+  // { id:  1, key: "AKIA_REDACTED_01", secret: "REDACTED_01" },
+  // { id:  2, key: "AKIA_REDACTED_02", secret: "REDACTED_02" },
+  // ... through slot 20
+];
+
+function getCanaryAwsKeys(tokenId) {
+  const idx = parseInt(tokenId, 16) % AWS_CANARY_POOL.length;
+  return AWS_CANARY_POOL[idx];
+}
+
 // ---------------------------------------------------------------------------
 // High-value paths that get honeypot content instead of maze HTML
 // Each maps to a function that generates realistic fake content
@@ -118,6 +144,7 @@ function generateTokenId(ip) {
 // ---------------------------------------------------------------------------
 
 function generateFakeEnv(tokenId) {
+  const creds = getCanaryAwsKeys(tokenId);
   const body = `# CareFortress Production Environment
 # Last updated: 2026-06-15
 
@@ -137,9 +164,9 @@ REDIS_HOST=int-${tokenId}.carefortress.dev
 REDIS_PASSWORD=rEdIs_S3cur3_2026!
 REDIS_PORT=6379
 
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_DEFAULT_REGION=us-east-1
+AWS_ACCESS_KEY_ID=${creds.key}
+AWS_SECRET_ACCESS_KEY=${creds.secret}
+AWS_DEFAULT_REGION=us-east-2
 AWS_BUCKET=carefortress-prod-assets
 
 MAIL_MAILER=smtp
@@ -164,18 +191,22 @@ API_GATEWAY_KEY=cgw_prod_4f8a2b1c9d3e7f6a
 }
 
 function generateFakeAwsCreds(tokenId) {
+  const creds = getCanaryAwsKeys(tokenId);
+  // Use a second pool slot for the "staging" profile
+  const stagingIdx = (parseInt(tokenId, 16) + 7) % AWS_CANARY_POOL.length;
+  const stagingCreds = AWS_CANARY_POOL[stagingIdx];
   const body = `[default]
-aws_access_key_id = AKIAIOSFODNN7EXAMPLE
-aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+aws_access_key_id = ${creds.key}
+aws_secret_access_key = ${creds.secret}
 
 [carefortress-prod]
-aws_access_key_id = AKIAT3S7HNUNEXAMPLE
-aws_secret_access_key = W8cN7wE6xFo8xxmWbuEgGIdu78bEIuVEXAMPLE
-region = us-east-1
+aws_access_key_id = ${creds.key}
+aws_secret_access_key = ${creds.secret}
+region = us-east-2
 
 [carefortress-staging]
-aws_access_key_id = AKIAT3S7HNUNSTAGING
-aws_secret_access_key = j9Kp2mNvBx4qYhLs6wRtD3fEgUiOaZcSTAGING
+aws_access_key_id = ${stagingCreds.key}
+aws_secret_access_key = ${stagingCreds.secret}
 region = us-east-2
 `;
   return { body, contentType: 'text/plain; charset=utf-8' };
@@ -665,6 +696,7 @@ export default {
             `repo-${tokenId}.carefortress.dev`,
             `int-${tokenId}.carefortress.dev`,
           ],
+          aws_pool_slot: parseInt(tokenId, 16) % 20 + 1,
         }));
 
         const { body, contentType } = honeypotGen(tokenId);
