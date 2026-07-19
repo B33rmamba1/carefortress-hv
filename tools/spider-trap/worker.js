@@ -1,23 +1,23 @@
 /**
- * CareFortress Spider Trap - Cloudflare Worker
+ * CareFortress Spider Trap - Cloudflare Worker (v2 - Canary Integration)
  *
- * Intercepts requests to known scanner/attacker paths and returns an
- * infinite maze of randomly-generated links (seeded by URL path so the
- * same path always produces the same links, making the maze feel real
- * to a crawler).
+ * Intercepts requests to known scanner/attacker paths. High-value paths
+ * (/.env, /.git/config, /config.json, /.ssh/id_rsa) return realistic
+ * honeypot content with embedded canary tracking URLs unique per visitor.
+ * All other trap paths return the infinite maze.
  *
- * Legitimate paths pass through to Cloudflare Pages unchanged.
+ * Canary callbacks use single-level subdomains:
+ *   repo-{tokenId}.carefortress.dev  → fake git remote clone
+ *   int-{tokenId}.carefortress.dev   → fake database hostname resolution
  *
- * Log events are structured as Wazuh-compatible JSON, ready for a
- * Filebeat HTTP input endpoint when Phase 4 SIEM is deployed.
+ * Token IDs are deterministic per visitor IP (8-char hex hash), so the
+ * same attacker always gets the same tokens across visits.
  *
- * Based on the spider trap concept by John Strand / Black Hills Information Security.
- * Adapted for Cloudflare Workers (JavaScript, no artificial delay due to 10ms CPU limit).
+ * All events POST to webhook.carefortress.dev → Cloudflare tunnel →
+ * VM 103 listener → Wazuh SIEM.
  *
- * Deployment:
- *   1. wrangler login
- *   2. wrangler deploy
- *   Or paste into Cloudflare Dashboard > Workers & Pages > Create Worker
+ * Based on the spider trap concept by John Strand / BHIS.
+ * Adapted for Cloudflare Workers.
  */
 
 // ---------------------------------------------------------------------------
@@ -25,153 +25,469 @@
 // ---------------------------------------------------------------------------
 
 const CONFIG = {
-  // Links per generated page (min, max)
   LINKS_PER_PAGE: [5, 10],
-
-  // Length of each generated link segment (min, max)
   LENGTH_OF_LINKS: [3, 20],
-
-  // Characters to compose random link paths from
   CHAR_SPACE: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-',
-
-  // Wazuh Filebeat HTTP input endpoint (set once Phase 4 SIEM is live)
-  // Format: "https://your-wazuh-host:9200/filebeat-..." or Filebeat HTTP input
-  // Leave null to skip Wazuh forwarding until SIEM is deployed
   WAZUH_ENDPOINT: 'https://webhook.carefortress.dev',
-
-  // Optional: Wazuh API key or basic auth token if required
   WAZUH_AUTH: null,
 };
 
 // ---------------------------------------------------------------------------
-// Decoy path patterns - any request matching these goes to the spider trap
-// High-signal paths: no legitimate user or browser should ever request these
+// High-value paths that get honeypot content instead of maze HTML
+// Each maps to a function that generates realistic fake content
+// ---------------------------------------------------------------------------
+
+const HONEYPOT_PATHS = {
+  '/.env':                generateFakeEnv,
+  '/.env.local':          generateFakeEnv,
+  '/.env.production':     generateFakeEnv,
+  '/.env.backup':         generateFakeEnv,
+  '/.env.bak':            generateFakeEnv,
+  '/.aws/credentials':    generateFakeAwsCreds,
+  '/.aws/config':         generateFakeAwsConfig,
+  '/.git/config':         generateFakeGitConfig,
+  '/.git/HEAD':           generateFakeGitHead,
+  '/config.json':         generateFakeConfigJson,
+  '/config.yml':          generateFakeConfigYml,
+  '/config.yaml':         generateFakeConfigYml,
+  '/configuration.json':  generateFakeConfigJson,
+  '/settings.json':       generateFakeSettingsJson,
+  '/database.yml':        generateFakeDatabaseYml,
+  '/.ssh/id_rsa':         generateFakeSshKey,
+  '/.ssh/id_ed25519':     generateFakeSshKeyEd25519,
+  '/.ssh/authorized_keys':generateFakeAuthorizedKeys,
+  '/.ssh/config':         generateFakeSshConfig,
+  '/docker-compose.yml':  generateFakeDockerCompose,
+  '/Dockerfile':          generateFakeDockerfile,
+};
+
+// ---------------------------------------------------------------------------
+// Decoy path patterns (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 const DECOY_EXACT = new Set([
-  // robots.txt - trapped with a fake file full of enticing disallow paths
-  // that all lead deeper into the maze (see generateRobotsTxt below)
-  '/robots.txt',
-
-  // sitemap.xml - 13 hits in carefortress.dev logs, clearly scanner-driven.
-  // A legitimate site would serve a real sitemap; carefortress.dev has no SEO need.
-  // Trapped as a plain HTML maze page.
-  '/sitemap.xml',
-
-  // Environment / credentials
-  '/.env',
-  '/.env.local',
-  '/.env.production',
-  '/.env.backup',
-  '/.env.bak',
-  '/.aws/credentials',
-  '/.aws/config',
-
-  // Git exposure
-  '/.git/config',
-  '/.git/HEAD',
-  '/.gitignore',
-
-  // Config file fishing
-  '/config.json',
-  '/config.php',
-  '/config.yaml',
-  '/config.yml',
-  '/configuration.json',
-  '/settings.json',
-  '/secrets.json',
-  '/database.yml',
-  '/db.php',
-
-  // Spring Boot actuator (Java microservice probing)
-  '/actuator/env',
-  '/actuator/health',
-  '/actuator/info',
-  '/actuator/mappings',
-  '/actuator/beans',
-  '/env',
-
-  // PHP backdoor / CMS probing
-  '/h2.php',
-  '/wp-login.php',
-  '/wp-admin',
-  '/wp-admin/',
-  '/xmlrpc.php',
-  '/admin',
-  '/admin/',
-  '/administrator',
-  '/administrator/',
-  '/phpmyadmin',
-  '/phpmyadmin/',
-  '/mysql',
-  '/sql',
-
-  // Windows Live Writer / WordPress manifest (seen in carefortress.dev logs)
+  '/robots.txt', '/sitemap.xml',
+  '/.env', '/.env.local', '/.env.production', '/.env.backup', '/.env.bak',
+  '/.aws/credentials', '/.aws/config',
+  '/.git/config', '/.git/HEAD', '/.gitignore',
+  '/config.json', '/config.php', '/config.yaml', '/config.yml',
+  '/configuration.json', '/settings.json', '/secrets.json',
+  '/database.yml', '/db.php',
+  '/actuator/env', '/actuator/health', '/actuator/info',
+  '/actuator/mappings', '/actuator/beans', '/env',
+  '/h2.php', '/wp-login.php', '/wp-admin', '/wp-admin/',
+  '/xmlrpc.php', '/admin', '/admin/', '/administrator', '/administrator/',
+  '/phpmyadmin', '/phpmyadmin/', '/mysql', '/sql',
   '/wlwmanifest.xml',
-
-  // SSH / credentials
-  '/.ssh/id_rsa',
-  '/.ssh/id_ed25519',
-  '/.ssh/authorized_keys',
-
-  // Other common high-signal paths
-  '/server-status',
-  '/server-info',
-  '/.htaccess',
-  '/.htpasswd',
-  '/web.config',
-  '/crossdomain.xml',
-  '/clientaccesspolicy.xml',
-  '/info.php',
-  '/phpinfo.php',
-  '/test.php',
-  '/shell.php',
-  '/cmd.php',
-  '/backup.zip',
-  '/backup.sql',
-  '/dump.sql',
-  '/db.sql',
-  '/README.md',
-  '/CHANGELOG.md',
-  '/LICENSE.txt',
-  '/composer.json',
-  '/composer.lock',
-  '/package.json',
-  '/package-lock.json',
-  '/Dockerfile',
-  '/docker-compose.yml',
-  '/Makefile',
+  '/.ssh/id_rsa', '/.ssh/id_ed25519', '/.ssh/authorized_keys', '/.ssh/config',
+  '/server-status', '/server-info',
+  '/.htaccess', '/.htpasswd', '/web.config',
+  '/crossdomain.xml', '/clientaccesspolicy.xml',
+  '/info.php', '/phpinfo.php', '/test.php', '/shell.php', '/cmd.php',
+  '/backup.zip', '/backup.sql', '/dump.sql', '/db.sql',
+  '/README.md', '/CHANGELOG.md', '/LICENSE.txt',
+  '/composer.json', '/composer.lock',
+  '/package.json', '/package-lock.json',
+  '/Dockerfile', '/docker-compose.yml', '/Makefile',
 ]);
 
-// Decoy path prefixes - any path starting with these goes to the trap
 const DECOY_PREFIXES = [
-  '/wp-includes/',
-  '/wp-content/',
-  '/wp-admin/',
-  '//cms/',
-  '//web/',
-  '//news/',
-  '//2019/',
-  '//2020/',
-  '//2021/',
-  '//2022/',
-  '//2023/',
-  '//2024/',
-  '//2025/',
-  '/admin/',
-  '/administrator/',
-  '/phpmyadmin/',
-  '/actuator/',
-  '/.git/',
-  '/.env',
-  '/.aws/',
-  '/.ssh/',
+  '/wp-includes/', '/wp-content/', '/wp-admin/',
+  '//cms/', '//web/', '//news/',
+  '//2019/', '//2020/', '//2021/', '//2022/', '//2023/', '//2024/', '//2025/',
+  '/admin/', '/administrator/', '/phpmyadmin/',
+  '/actuator/', '/.git/', '/.env', '/.aws/', '/.ssh/',
 ];
 
 // ---------------------------------------------------------------------------
-// Seeded pseudo-random number generator
-// Deterministic so the same URL path always produces the same maze page.
-// Uses a simple mulberry32 PRNG seeded from a hash of the path string.
+// Token ID generation - deterministic per visitor IP
+// ---------------------------------------------------------------------------
+
+function generateTokenId(ip) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < ip.length; i++) {
+    hash ^= ip.charCodeAt(i);
+    hash = (hash * 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+// ---------------------------------------------------------------------------
+// Honeypot content generators
+// Each takes a tokenId and returns { body: string, contentType: string }
+// ---------------------------------------------------------------------------
+
+function generateFakeEnv(tokenId) {
+  const body = `# CareFortress Production Environment
+# Last updated: 2026-06-15
+
+APP_NAME=carefortress
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://carefortress.dev
+
+DB_CONNECTION=pgsql
+DB_HOST=int-${tokenId}.carefortress.dev
+DB_PORT=5432
+DB_DATABASE=carefortress_prod
+DB_USERNAME=cf_admin
+DB_PASSWORD=kP9$vLm2!xQwR7nT
+
+REDIS_HOST=int-${tokenId}.carefortress.dev
+REDIS_PASSWORD=rEdIs_S3cur3_2026!
+REDIS_PORT=6379
+
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=carefortress-prod-assets
+
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailgun.org
+MAIL_PORT=587
+MAIL_USERNAME=postmaster@carefortress.dev
+MAIL_PASSWORD=mg_api_k3y_2026_pr0d
+
+JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.c2VjcmV0
+JWT_TTL=3600
+
+STRIPE_KEY=pk_live_51H7xKGHIJKLMNOPQRSTUVW
+STRIPE_SECRET=sk_live_51H7xyzABCDEFGHIJKLMNOP
+
+SENTRY_DSN=https://abc123@o456.ingest.sentry.io/789
+
+# Internal API
+API_GATEWAY_URL=https://int-${tokenId}.carefortress.dev:8443/api/v1
+API_GATEWAY_KEY=cgw_prod_4f8a2b1c9d3e7f6a
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeAwsCreds(tokenId) {
+  const body = `[default]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+[carefortress-prod]
+aws_access_key_id = AKIAT3S7HNUNEXAMPLE
+aws_secret_access_key = W8cN7wE6xFo8xxmWbuEgGIdu78bEIuVEXAMPLE
+region = us-east-1
+
+[carefortress-staging]
+aws_access_key_id = AKIAT3S7HNUNSTAGING
+aws_secret_access_key = j9Kp2mNvBx4qYhLs6wRtD3fEgUiOaZcSTAGING
+region = us-east-2
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeAwsConfig(tokenId) {
+  const body = `[default]
+region = us-east-1
+output = json
+
+[profile carefortress-prod]
+region = us-east-1
+output = json
+
+[profile carefortress-staging]
+region = us-east-2
+output = json
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeGitConfig(tokenId) {
+  const body = `[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "origin"]
+	url = https://repo-${tokenId}.carefortress.dev/carefortress/carefortress-platform.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "staging"]
+	url = https://repo-${tokenId}.carefortress.dev/carefortress/carefortress-staging.git
+	fetch = +refs/heads/*:refs/remotes/staging/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "develop"]
+	remote = origin
+	merge = refs/heads/develop
+[user]
+	name = James Smith
+	email = james@carefortress.dev
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeGitHead(tokenId) {
+  const body = `ref: refs/heads/main\n`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeConfigJson(tokenId) {
+  const body = JSON.stringify({
+    application: {
+      name: "carefortress-platform",
+      version: "2.4.1",
+      environment: "production"
+    },
+    database: {
+      primary: {
+        host: `int-${tokenId}.carefortress.dev`,
+        port: 5432,
+        name: "carefortress_prod",
+        username: "cf_admin",
+        password: "kP9$vLm2!xQwR7nT",
+        ssl: true
+      },
+      replica: {
+        host: `int-${tokenId}.carefortress.dev`,
+        port: 5433,
+        name: "carefortress_prod_ro",
+        username: "cf_readonly",
+        password: "r0_P4ss_2026!"
+      }
+    },
+    redis: {
+      host: `int-${tokenId}.carefortress.dev`,
+      port: 6379,
+      password: "rEdIs_S3cur3_2026!",
+      db: 0
+    },
+    api: {
+      gateway_url: `https://int-${tokenId}.carefortress.dev:8443/api/v1`,
+      api_key: "cgw_prod_4f8a2b1c9d3e7f6a",
+      rate_limit: 1000
+    },
+    auth: {
+      jwt_secret: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.c2VjcmV0",
+      token_ttl: 3600,
+      refresh_ttl: 86400
+    },
+    storage: {
+      provider: "s3",
+      bucket: "carefortress-prod-assets",
+      region: "us-east-1"
+    }
+  }, null, 2);
+  return { body, contentType: 'application/json; charset=utf-8' };
+}
+
+function generateFakeConfigYml(tokenId) {
+  const body = `# CareFortress Platform Configuration
+# Environment: production
+# Last modified: 2026-06-15
+
+application:
+  name: carefortress-platform
+  version: 2.4.1
+  environment: production
+  debug: false
+
+database:
+  primary:
+    host: int-${tokenId}.carefortress.dev
+    port: 5432
+    name: carefortress_prod
+    username: cf_admin
+    password: "kP9$vLm2!xQwR7nT"
+    pool_size: 20
+    ssl_mode: require
+  replica:
+    host: int-${tokenId}.carefortress.dev
+    port: 5433
+    name: carefortress_prod_ro
+    username: cf_readonly
+    password: "r0_P4ss_2026!"
+
+redis:
+  host: int-${tokenId}.carefortress.dev
+  port: 6379
+  password: "rEdIs_S3cur3_2026!"
+
+api:
+  gateway: https://int-${tokenId}.carefortress.dev:8443/api/v1
+  key: cgw_prod_4f8a2b1c9d3e7f6a
+
+logging:
+  level: warn
+  sentry_dsn: https://abc123@o456.ingest.sentry.io/789
+`;
+  return { body, contentType: 'text/yaml; charset=utf-8' };
+}
+
+function generateFakeSettingsJson(tokenId) {
+  const body = JSON.stringify({
+    site: {
+      name: "CareFortress",
+      url: "https://carefortress.dev",
+      admin_email: "admin@carefortress.dev"
+    },
+    features: {
+      maintenance_mode: false,
+      api_enabled: true,
+      registration_open: false
+    },
+    integrations: {
+      ehr_endpoint: `https://int-${tokenId}.carefortress.dev:9443/ehr/v2`,
+      ehr_api_key: "ehr_prod_8k2m4n6p",
+      fhir_server: `https://int-${tokenId}.carefortress.dev:9444/fhir/r4`
+    },
+    security: {
+      mfa_required: true,
+      session_timeout: 1800,
+      password_policy: "strong"
+    }
+  }, null, 2);
+  return { body, contentType: 'application/json; charset=utf-8' };
+}
+
+function generateFakeDatabaseYml(tokenId) {
+  const body = `# Database configuration
+production:
+  adapter: postgresql
+  host: int-${tokenId}.carefortress.dev
+  port: 5432
+  database: carefortress_prod
+  username: cf_admin
+  password: "kP9$vLm2!xQwR7nT"
+  pool: 25
+  timeout: 5000
+  ssl: true
+
+staging:
+  adapter: postgresql
+  host: int-${tokenId}.carefortress.dev
+  port: 5432
+  database: carefortress_staging
+  username: cf_staging
+  password: "stG_P4ss_2026!"
+  pool: 10
+
+test:
+  adapter: sqlite3
+  database: db/test.sqlite3
+`;
+  return { body, contentType: 'text/yaml; charset=utf-8' };
+}
+
+function generateFakeSshKey(tokenId) {
+  // Realistic-looking RSA private key (fake, not a real key)
+  const body = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBHK9Fc5JdmPk0YyV7j3nR${tokenId}AABQgAAAAtzc2gtZWQyNTUxOQAA
+ACBHK9Fc5JdmPk0YyV7j3nRp0AAAAED8n4bOvXpG1hZP5KL8mN2dR9xTQvFw3kJjYe6s
+0AAAACZGVWZM9AY2FyZWZvcnRyZXNzLmRldg${tokenId}AAAAAECzR1v2MxhT4kpN9Xm
+qW7fJb3nYvKdHGx5tPRAjLmS8ocr0VzklY+TRjJXuPedG${tokenId}AAAAFGRlcGxveUBj
+YXJlZm9ydHJlc3MuZGV2AQIDBAUISSH${tokenId}FAKE
+-----END OPENSSH PRIVATE KEY-----
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeSshKeyEd25519(tokenId) {
+  const body = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACDK${tokenId}nR9xTQvFw3kJjYe6sMwAAAAtzc2gtZWQyNTUxOQAAACDK
+${tokenId}PRAjLmS8ocr0VzklY+TRjJXuPedGnQAAAED8n4bOvXpG1hZP5KL8m
+-----END OPENSSH PRIVATE KEY-----
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeAuthorizedKeys(tokenId) {
+  const body = `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI${tokenId}K9Fc5JdmPk0YyV7j3nRp0 deploy@carefortress.dev
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC${tokenId}xTQvFw3kJjYe6sMwR1v2MxhT4kpN9XmqW7fJb3nYvKdHGx5tPRAjLmS8ocr0VzklY admin@carefortress.dev
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeSshConfig(tokenId) {
+  const body = `# CareFortress SSH Config
+Host carefortress-prod
+    HostName int-${tokenId}.carefortress.dev
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519
+    Port 22
+    ForwardAgent no
+
+Host carefortress-staging
+    HostName int-${tokenId}.carefortress.dev
+    User deploy-staging
+    IdentityFile ~/.ssh/id_ed25519
+    Port 2222
+
+Host carefortress-db
+    HostName int-${tokenId}.carefortress.dev
+    User dba
+    IdentityFile ~/.ssh/id_rsa
+    Port 22
+    LocalForward 5432 localhost:5432
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+function generateFakeDockerCompose(tokenId) {
+  const body = `version: '3.8'
+
+services:
+  app:
+    image: carefortress/platform:2.4.1
+    environment:
+      DATABASE_URL: postgresql://cf_admin:kP9$$vLm2!xQwR7nT@int-${tokenId}.carefortress.dev:5432/carefortress_prod
+      REDIS_URL: redis://:rEdIs_S3cur3_2026!@int-${tokenId}.carefortress.dev:6379/0
+      JWT_SECRET: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.c2VjcmV0
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+
+  worker:
+    image: carefortress/worker:2.4.1
+    environment:
+      DATABASE_URL: postgresql://cf_admin:kP9$$vLm2!xQwR7nT@int-${tokenId}.carefortress.dev:5432/carefortress_prod
+      REDIS_URL: redis://:rEdIs_S3cur3_2026!@int-${tokenId}.carefortress.dev:6379/0
+    command: ["celery", "-A", "carefortress", "worker", "--loglevel=info"]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass rEdIs_S3cur3_2026!
+    ports:
+      - "6379:6379"
+`;
+  return { body, contentType: 'text/yaml; charset=utf-8' };
+}
+
+function generateFakeDockerfile(tokenId) {
+  const body = `FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY . .
+
+# Configure for production
+ENV APP_ENV=production
+ENV DATABASE_HOST=int-${tokenId}.carefortress.dev
+ENV DATABASE_PORT=5432
+ENV DATABASE_NAME=carefortress_prod
+
+EXPOSE 8080
+
+CMD ["gunicorn", "carefortress.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "4"]
+`;
+  return { body, contentType: 'text/plain; charset=utf-8' };
+}
+
+// ---------------------------------------------------------------------------
+// Seeded PRNG (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 function hashString(str) {
@@ -199,7 +515,7 @@ function randInt(rng, min, max) {
 }
 
 // ---------------------------------------------------------------------------
-// Generate a spider trap page seeded by the request path
+// Maze page generator (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 function generateTrapPage(path) {
@@ -215,7 +531,6 @@ function generateTrapPage(path) {
       const idx = Math.floor(rng() * CONFIG.CHAR_SPACE.length);
       segment += CONFIG.CHAR_SPACE[idx];
     }
-    // All generated links are relative paths - every one is a valid new trap entry
     const href = '/' + segment;
     links += `<a href="${href}">${href}</a><br>\n`;
   }
@@ -224,16 +539,55 @@ function generateTrapPage(path) {
 }
 
 // ---------------------------------------------------------------------------
-// Log a trap hit as Wazuh-compatible JSON
-// Forwards to Wazuh Filebeat HTTP input if configured; console.log otherwise
+// robots.txt generator (unchanged from v1)
 // ---------------------------------------------------------------------------
 
-async function logTrapHit(request, path) {
+function generateRobotsTxt() {
+  const now = new Date();
+  const seed = hashString(`${now.getFullYear()}-${now.getMonth()}`);
+  const rng = makeRng(seed);
+
+  const enticingPaths = [
+    '/admin', '/admin/dashboard', '/admin/users', '/admin/config', '/admin/backup',
+    '/administrator', '/api/internal', '/api/v1/admin', '/api/v1/users',
+    '/api/v1/config', '/api/keys', '/api/secrets', '/backup', '/backups',
+    '/db', '/database', '/config', '/configs', '/internal', '/private',
+    '/secret', '/secrets', '/staging', '/dev', '/development', '/test',
+    '/testing', '/dashboard', '/portal', '/management', '/console',
+    '/control', '/panel', '/staff', '/finance', '/billing', '/payments',
+    '/keys', '/credentials', '/tokens', '/certs', '/logs', '/audit',
+    '/debug', '/metrics', '/health/internal', '/actuator', '/env',
+    '/setup', '/install', '/wp-admin', '/phpmyadmin', '/.git', '/.env',
+    '/.aws', '/.ssh', '/tmp', '/uploads/private', '/export', '/reports',
+    '/system', '/server', '/infrastructure',
+  ];
+
+  const shuffled = [...enticingPaths].sort(() => rng() - 0.5);
+  const selected = shuffled.slice(0, 20 + Math.floor(rng() * 10));
+
+  let content = '# robots.txt for carefortress.dev\n';
+  content += '# Updated: ' + now.toISOString().split('T')[0] + '\n\n';
+  content += 'User-agent: *\n';
+  content += 'Allow: /\n';
+  content += 'Allow: /index.html\n\n';
+  for (const path of selected) {
+    content += `Disallow: ${path}\n`;
+  }
+  content += '\n# Sitemap\n';
+  content += 'Sitemap: https://carefortress.dev/sitemap.xml\n';
+  return content;
+}
+
+// ---------------------------------------------------------------------------
+// Logging - POST to Wazuh webhook
+// ---------------------------------------------------------------------------
+
+async function logTrapHit(request, path, extras = {}) {
   const event = {
     timestamp: new Date().toISOString(),
-    event_type: 'SPIDER_TRAP_HIT',
+    event_type: extras.event_type || 'SPIDER_TRAP_HIT',
     source: 'carefortress-cloudflare-worker',
-    severity: 'medium',
+    severity: extras.severity || 'medium',
     path: path,
     method: request.method,
     source_ip: request.headers.get('CF-Connecting-IP') || 'unknown',
@@ -243,12 +597,11 @@ async function logTrapHit(request, path) {
     ray_id: request.headers.get('CF-Ray') || 'unknown',
     asn: request.headers.get('CF-IPCountry') || 'unknown',
     msg: `Spider trap triggered by ${request.headers.get('CF-Connecting-IP')} on path ${path}`,
+    ...extras,
   };
 
-  // Always log to Cloudflare Worker console (visible in wrangler tail / dashboard logs)
   console.log(JSON.stringify(event));
 
-  // Forward to Wazuh Filebeat HTTP input once Phase 4 SIEM is deployed
   if (CONFIG.WAZUH_ENDPOINT) {
     const headers = { 'Content-Type': 'application/json' };
     if (CONFIG.WAZUH_AUTH) {
@@ -261,157 +614,29 @@ async function logTrapHit(request, path) {
         body: JSON.stringify(event),
       });
     } catch (err) {
-      // Never let logging failure affect the trap response
       console.error('Wazuh forward failed:', err.message);
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Path matching
+// Path matching (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 function isDecoyPath(path) {
-  // Normalize double slashes for comparison
   const normalized = path.replace(/\/\/+/g, '//');
-
   if (DECOY_EXACT.has(path)) return true;
-
   for (const prefix of DECOY_PREFIXES) {
     if (path.startsWith(prefix) || normalized.startsWith(prefix)) return true;
   }
-
-  // Catch common extension-based fishing regardless of path
   const extPatterns = [
-    /\.php$/i,
-    /\.asp$/i,
-    /\.aspx$/i,
-    /\.jsp$/i,
-    /\.cgi$/i,
-    /wlwmanifest\.xml$/i,
-    /xmlrpc\.php$/i,
+    /\.php$/i, /\.asp$/i, /\.aspx$/i, /\.jsp$/i,
+    /\.cgi$/i, /wlwmanifest\.xml$/i, /xmlrpc\.php$/i,
   ];
   for (const pattern of extPatterns) {
     if (pattern.test(path)) return true;
   }
-
   return false;
-}
-
-// ---------------------------------------------------------------------------
-// Generate a fake robots.txt full of enticing Disallow paths
-// All listed paths are themselves trap entries - the attacker mines the file
-// and gets a curated list of "hidden" paths that lead deeper into the maze.
-// Seeded by date so it changes monthly, making it look actively maintained.
-// ---------------------------------------------------------------------------
-
-function generateRobotsTxt() {
-  const now = new Date();
-  // Seed changes monthly so the file looks like it's being updated
-  const seed = hashString(`${now.getFullYear()}-${now.getMonth()}`);
-  const rng = makeRng(seed);
-
-  // Pool of enticing-looking paths that attackers love to see in Disallow
-  const enticingPaths = [
-    '/admin',
-    '/admin/dashboard',
-    '/admin/users',
-    '/admin/config',
-    '/admin/backup',
-    '/administrator',
-    '/api/internal',
-    '/api/v1/admin',
-    '/api/v1/users',
-    '/api/v1/config',
-    '/api/keys',
-    '/api/secrets',
-    '/backup',
-    '/backups',
-    '/db',
-    '/database',
-    '/config',
-    '/configs',
-    '/internal',
-    '/private',
-    '/secret',
-    '/secrets',
-    '/staging',
-    '/dev',
-    '/development',
-    '/test',
-    '/testing',
-    '/beta',
-    '/dashboard',
-    '/portal',
-    '/management',
-    '/manage',
-    '/console',
-    '/control',
-    '/cp',
-    '/panel',
-    '/staff',
-    '/employees',
-    '/finance',
-    '/billing',
-    '/payments',
-    '/keys',
-    '/credentials',
-    '/tokens',
-    '/certs',
-    '/certificates',
-    '/logs',
-    '/audit',
-    '/debug',
-    '/trace',
-    '/metrics',
-    '/health/internal',
-    '/actuator',
-    '/actuator/env',
-    '/actuator/beans',
-    '/env',
-    '/setup',
-    '/install',
-    '/wp-admin',
-    '/phpmyadmin',
-    '/.git',
-    '/.env',
-    '/.aws',
-    '/.ssh',
-    '/tmp',
-    '/cache',
-    '/uploads/private',
-    '/files/internal',
-    '/export',
-    '/reports',
-    '/analytics/internal',
-    '/system',
-    '/sys',
-    '/server',
-    '/infrastructure',
-  ];
-
-  // Pick a random subset to show this month (makes it look curated, not exhaustive)
-  const shuffled = [...enticingPaths].sort(() => rng() - 0.5);
-  const selected = shuffled.slice(0, 20 + Math.floor(rng() * 10));
-
-  // Build the fake robots.txt
-  let content = '# robots.txt for carefortress.dev\n';
-  content += '# Generated: ' + now.toISOString().split('T')[0] + '\n\n';
-  content += 'User-agent: *\n';
-
-  // Allow a few innocuous paths to make it look real
-  content += 'Allow: /\n';
-  content += 'Allow: /index.html\n\n';
-
-  // The enticing disallows - all trap paths
-  for (const path of selected) {
-    content += `Disallow: ${path}\n`;
-  }
-
-  content += '\n# Sitemap\n';
-  content += 'Sitemap: https://carefortress.dev/sitemap.xml\n';
-
-  return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -424,12 +649,37 @@ export default {
     const path = url.pathname;
 
     if (isDecoyPath(path)) {
-      // Log the hit asynchronously - don't block the response
-      ctx.waitUntil(logTrapHit(request, path));
+      const visitorIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const tokenId = generateTokenId(visitorIp);
 
-      // robots.txt gets a special fake response - plain text with enticing
-      // Disallow paths that all lead into the spider trap maze
+      // Check if this is a high-value honeypot path
+      const honeypotGen = HONEYPOT_PATHS[path];
+
+      if (honeypotGen) {
+        // Log with canary metadata
+        ctx.waitUntil(logTrapHit(request, path, {
+          event_type: 'CANARY_SERVED',
+          severity: 'high',
+          token_id: tokenId,
+          canary_domains: [
+            `repo-${tokenId}.carefortress.dev`,
+            `int-${tokenId}.carefortress.dev`,
+          ],
+        }));
+
+        const { body, contentType } = honeypotGen(tokenId);
+        return new Response(body, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+
+      // robots.txt
       if (path === '/robots.txt') {
+        ctx.waitUntil(logTrapHit(request, path));
         return new Response(generateRobotsTxt(), {
           status: 200,
           headers: {
@@ -439,7 +689,8 @@ export default {
         });
       }
 
-      // All other decoy paths return the infinite HTML maze
+      // All other decoy paths - maze HTML
+      ctx.waitUntil(logTrapHit(request, path));
       return new Response(generateTrapPage(path), {
         status: 200,
         headers: {
@@ -449,7 +700,7 @@ export default {
       });
     }
 
-    // Legitimate path - pass through to Cloudflare Pages origin unchanged
+    // Legitimate path - pass through to Cloudflare Pages
     return fetch(request);
   },
 };
